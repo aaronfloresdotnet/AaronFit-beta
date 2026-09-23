@@ -12,6 +12,19 @@ export function numero(n) {
   return String(Math.round(n * 100) / 100);
 }
 
+/** Cifras fijas, para estimaciones: 18.37 → '18.4'; decimal(0.5, 2) → '0.50'. */
+export function decimal(n, cifras = 1) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+  return n.toFixed(cifras);
+}
+
+/** Un cambio con su signo: 1.5 → '+1.5'; −0.7 → '−0.7'; 0 → '0'. */
+export function cambio(n) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+  if (n === 0) return '0';
+  return `${n > 0 ? '+' : '−'}${numero(Math.abs(n))}`;
+}
+
 /** '50 kg', '35 lb c/u', '' si es peso corporal. */
 export function peso(valor, unidad, porLado = false) {
   if (unidad === 'corporal' || valor === null || valor === undefined) return '';

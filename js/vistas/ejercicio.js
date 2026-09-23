@@ -285,22 +285,32 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       app.aviso('Corrección guardada');
       return;
     }
-    if (resultado.progresion) await ofrecerProgresion(resultado.progresion);
+    const anotado = resultado.progresion ? await ofrecerProgresion(resultado.progresion) : false;
+    // Lo que se avisa abajo: el aviso aceptado y el récord, juntos si tocan los dos.
+    const record = resultado.record ? textoRecord(resultado.record) : null;
+    const extra = [anotado ? (record ? 'Anotado para la próxima' : 'Anotado: la próxima vez sale precargado') : null, record]
+      .filter(Boolean)
+      .join(' · ');
+    const conExtra = (texto) => (extra ? `${texto} · ${extra}` : texto);
     const deshacer = { etiqueta: 'Deshacer', alTocar: deshacerUltima };
     if (resultado.sesionTerminada) {
       app.pantalla.desactivar();
       app.ir(`#/dia/${sesionId}`, { reemplazar: true });
-      app.aviso('Entrenamiento terminado', 6000, deshacer);
+      app.aviso(conExtra('Entrenamiento terminado'), 6000, deshacer);
       return;
     }
     datos = await servicio.datosEjercicio(sesionId, rutinaId);
     const siguienteSerie = primeraPendiente();
     const sinDescanso = !resultado.descansoSeg;
+    const avisar = () => {
+      if (sinDescanso) app.aviso(conExtra('Serie guardada'), 6000, deshacer);
+      else if (extra) app.aviso(extra, 5000);
+    };
     if (siguienteSerie === null) {
       const destino = datos.siguientePendiente;
       app.cronometro.iniciar(resultado.descansoSeg, { texto: destino ? `Sigue: ${destino.nombre}` : '', frases, deshacer: deshacerUltima });
       app.ir(destino ? `#/ejercicio/${sesionId}/${destino.id}` : `#/dia/${sesionId}`, { reemplazar: true });
-      if (sinDescanso) app.aviso('Serie guardada', 6000, deshacer);
+      avisar();
       return;
     }
     abierta = siguienteSerie;
@@ -312,7 +322,14 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       frases,
       deshacer: deshacerUltima,
     });
-    if (sinDescanso) app.aviso('Serie guardada', 6000, deshacer);
+    avisar();
+  }
+
+  /** '★ ¡Nuevo récord! 57.5 kg' (o 1RM estimado, o la mejor serie sin peso). */
+  function textoRecord(r) {
+    if (r.tipo === 'peso') return `★ ¡Nuevo récord! ${formato.peso(r.valor, r.unidad, e.pesoPorLado)}`;
+    if (r.tipo === 'e1rm') return `★ ¡Nuevo récord! 1RM estimado ${formato.decimal(r.valor)} ${r.unidad}${e.pesoPorLado ? ' c/u' : ''}`;
+    return `★ ¡Nuevo récord! ${formato.valor(r.valor, e.tipoMedida)}${e.tipoMedida === 'reps' ? ' reps' : ''}`;
   }
 
   /** Deshace la última serie guardada y reabre su tarjeta con los valores que tenía. */
@@ -357,9 +374,9 @@ export async function montar(raiz, [idSesion, idRutina], app) {
     }
     if (control) cuerpo.push(control.elemento);
     const elegida = await preguntar({ titulo: '¡Ya te toca subirle!', cuerpo, botones, clase: 'dialogo-progresion' });
-    if (!elegida) return;
+    if (!elegida) return false;
     await servicio.aceptarProgresion({ sesionId, rutinaId, propuesta: elegida });
-    app.aviso('Anotado: la próxima vez sale precargado');
+    return true;
   }
 
   function pie() {

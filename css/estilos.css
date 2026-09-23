@@ -18,6 +18,11 @@
   --aviso-fondo: #2b2310;
   --peligro: #f87171;
   --peligro-fondo: #2b1515;
+  /* Gráficas (tanda 2): azul y naranja validados contra --superficie con la
+     guía dataviz (validate_palette.js, modo oscuro: pasan los 5 chequeos). */
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --rejilla: #232c38;
   --radio: 16px;
   --toque: 56px;
   --seguro-abajo: env(safe-area-inset-bottom, 0px);
@@ -1148,7 +1153,7 @@ dialog.dialogo::backdrop {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding-bottom: var(--seguro-abajo);
   background: rgba(15, 18, 23, 0.97);
   border-top: 1px solid var(--borde);
@@ -1222,4 +1227,376 @@ body.entrenando .toast {
 :focus-visible {
   outline: 3px solid var(--acento);
   outline-offset: 2px;
+}
+
+/* ---------- Tanda 2: avance, cuerpo y gráficas ---------- */
+
+.entrada-select {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--superficie-2);
+  font-weight: 700;
+}
+
+.panel-ejercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Cifras (stat tiles): etiqueta, valor grande y detalle. */
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--superficie-2);
+}
+
+.cifra-etiqueta {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--texto-2);
+}
+
+.cifra-valor {
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.cifra-detalle {
+  font-size: 0.85rem;
+  color: var(--texto-2);
+}
+
+.lista-subio {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.tarjeta-resumen {
+  color: inherit;
+}
+
+.tarjeta-resumen .fila-simple {
+  min-height: 40px;
+}
+
+/* Constancia: semanas en renglones, de lunes a viernes. */
+.constancia {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.constancia th {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--texto-2);
+  text-align: center;
+}
+
+.constancia tbody th {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.constancia td {
+  padding: 0;
+  text-align: center;
+}
+
+.constancia tr.actual th {
+  color: var(--texto);
+}
+
+.celda-dia {
+  display: grid;
+  place-items: center;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--superficie-2);
+  font-weight: 800;
+  color: var(--texto-3);
+}
+
+.celda-dia.hecho,
+.celda-dia.recorrido {
+  background: #0f2a19;
+  border-color: #166534;
+  color: var(--acento);
+}
+
+.celda-dia.hoy,
+.celda-dia.en_curso {
+  border-color: var(--acento);
+  color: var(--texto);
+}
+
+.celda-dia.pendiente {
+  border-color: var(--aviso);
+  color: var(--aviso);
+}
+
+.celda-dia.antes {
+  border-color: transparent;
+  background: transparent;
+}
+
+.constancia-cuenta {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+
+/* Perfil: dos opciones grandes; ninguna viene elegida. */
+.elecciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.eleccion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--toque);
+  padding: 0 14px;
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  background: var(--superficie-2);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.eleccion input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--acento);
+}
+
+.eleccion:has(input:checked) {
+  border-color: var(--acento);
+}
+
+.aviso-fotos {
+  color: var(--aviso) !important;
+  font-weight: 700;
+}
+
+.comparacion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comparacion thead th {
+  white-space: nowrap;
+}
+
+.titulo-grafica {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  color: var(--texto-2);
+}
+
+/* Gráficas: SVG a mano (componentes/grafica.js). */
+.grafica {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+/* Alto fijo, igual al del SVG (ALTO en grafica.js): dibujar no cambia su tamaño. */
+.grafica-lienzo {
+  position: relative;
+  height: 200px;
+}
+
+.grafica-svg {
+  display: block;
+  width: 100%;
+  height: 200px;
+  overflow: visible;
+  touch-action: pan-y;
+  cursor: crosshair;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.grafica-svg:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.grafica-svg text {
+  font-family: var(--fuente);
+}
+
+.grafica-rejilla {
+  stroke: var(--rejilla);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.grafica-eje {
+  fill: var(--texto-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.grafica-final {
+  fill: var(--texto);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.grafica-linea {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.grafica-linea.serie-1 {
+  stroke: var(--serie-1);
+}
+
+.grafica-linea.serie-2 {
+  stroke: var(--serie-2);
+}
+
+.grafica-punto {
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+
+.grafica-punto.serie-1 {
+  fill: var(--serie-1);
+}
+
+.grafica-punto.serie-2 {
+  fill: var(--serie-2);
+}
+
+.grafica-cruz {
+  stroke: var(--texto-3);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.grafica-marca {
+  fill: var(--texto-2);
+}
+
+.grafica-tip {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  min-width: 128px;
+  max-width: 230px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--superficie-2);
+  font-size: 0.85rem;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.grafica-tip-fecha {
+  margin-bottom: 2px;
+  font-weight: 700;
+  color: var(--texto-2);
+}
+
+.grafica-tip-fila {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grafica-tip-fila strong {
+  font-size: 1rem;
+}
+
+.grafica-tip-fila span:last-child {
+  color: var(--texto-2);
+}
+
+.grafica-tip-marca {
+  margin-top: 2px;
+}
+
+.clave-linea {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.clave-linea.serie-1 {
+  background: var(--serie-1);
+}
+
+.clave-linea.serie-2 {
+  background: var(--serie-2);
+}
+
+.clave-marca {
+  font-size: 0.75rem;
+  color: var(--texto-2);
+}
+
+.grafica-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.85rem;
+  color: var(--texto-2);
+}
+
+.grafica-leyenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grafica-tabla summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--texto-2);
+  cursor: pointer;
+}
+
+.grafica-tabla table {
+  font-size: 0.9rem;
 }

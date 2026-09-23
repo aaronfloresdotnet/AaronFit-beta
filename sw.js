@@ -7,7 +7,7 @@
 
 // <archivos> — generado por herramientas/versionar-sw.js; no editar a mano.
 const PREFIJO = 'beta-aaronfit-';
-const VERSION = 'beta-aaronfit-8d4cbbaaec2a';
+const VERSION = 'beta-aaronfit-1bd3ac50743c';
 const ARCHIVOS = [
   './',
   './css/estilos.css',
@@ -20,6 +20,7 @@ const ARCHIVOS = [
   './js/componentes/cronometro.js',
   './js/componentes/dialogo.js',
   './js/componentes/dom.js',
+  './js/componentes/grafica.js',
   './js/componentes/spinner.js',
   './js/componentes/temporizador-serie.js',
   './js/componentes/video.js',
@@ -29,7 +30,10 @@ const ARCHIVOS = [
   './js/datos/semilla.js',
   './js/datos/videos.js',
   './js/datos/videos.json',
+  './js/logica/avance.js',
+  './js/logica/cuerpo.js',
   './js/logica/dias.js',
+  './js/logica/escala.js',
   './js/logica/formato.js',
   './js/logica/frases.js',
   './js/logica/medidas.js',
@@ -46,10 +50,12 @@ const ARCHIVOS = [
   './js/plataforma/pantalla.js',
   './js/plataforma/sonido.js',
   './js/servicios/arranque.js',
+  './js/servicios/avance.js',
   './js/servicios/contenedor.js',
   './js/servicios/entrenamiento.js',
   './js/servicios/medidas.js',
   './js/servicios/respaldo.js',
+  './js/vistas/avance.js',
   './js/vistas/dia.js',
   './js/vistas/ejercicio.js',
   './js/vistas/inicio.js',

@@ -4,7 +4,7 @@
 
 import { h, pintar } from '../componentes/dom.js';
 import { fechaCorta } from '../logica/formato.js';
-import { aTexto, diasEntre, fechaLocal } from '../logica/semana.js';
+import { aTexto, fechaLocal } from '../logica/semana.js';
 
 const cuantos = (n, singular, plural) => `${n} ${n === 1 ? singular : plural}`;
 
@@ -17,11 +17,8 @@ const NOMBRES = {
 };
 
 export async function montar(raiz, _parametros, app) {
-  const [ultimo, persistente, actuales] = await Promise.all([
-    app.servicios.respaldo.ultimo(),
-    app.almacenamiento.estaPersistido(),
-    app.servicios.contar(),
-  ]);
+  const [situacion, persistente] = await Promise.all([app.servicios.respaldo.situacion(), app.almacenamiento.estaPersistido()]);
+  const actuales = situacion.cuentas;
   let texto = null;
   let revision = null;
   let resultado = null;
@@ -29,15 +26,14 @@ export async function montar(raiz, _parametros, app) {
 
   render();
 
-  function haceCuanto(iso) {
-    const fecha = fechaLocal(new Date(iso));
-    const dias = diasEntre(fecha, fechaLocal());
+  function haceCuanto() {
+    const { dias, fecha } = situacion;
     const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
-    return { texto: `${cuando} (${fechaCorta(aTexto(fecha))})`, dias };
+    return `${cuando} (${fechaCorta(fecha)})`;
   }
 
   function render() {
-    const hace = ultimo ? haceCuanto(ultimo) : null;
+    const viejo = !situacion.fecha || situacion.dias > 7;
     pintar(
       raiz,
       h('h1', { class: 'titulo-seccion' }, 'Respaldo'),
@@ -47,8 +43,8 @@ export async function montar(raiz, _parametros, app) {
         h('p', {}, 'Tus datos viven solo en este teléfono. Si borras los datos del navegador o desinstalas la app, se pierden. Exporta seguido y guarda el archivo donde quieras.'),
         h(
           'p',
-          { class: !hace || hace.dias > 7 ? 'nota aviso' : 'nota' },
-          hace ? `Último respaldo: ${hace.texto}.` : 'Todavía no has hecho ningún respaldo.',
+          { class: viejo ? 'nota aviso' : 'nota' },
+          situacion.fecha ? `Último respaldo: ${haceCuanto()}.` : 'Todavía no has hecho ningún respaldo.',
         ),
         h(
           'p',
@@ -63,6 +59,14 @@ export async function montar(raiz, _parametros, app) {
             : 'El navegador todavía no tiene estos datos como persistentes (suele cambiar al instalar la app).',
         ),
         h('button', { type: 'button', class: 'boton primario enorme', onclick: exportar }, 'Exportar respaldo'),
+      ),
+      h(
+        'section',
+        { class: 'tarjeta' },
+        h('h2', {}, 'Historial para Sheets'),
+        h('p', {}, 'Un archivo TSV con un renglón por serie: fecha, ejercicio, peso, reps o tiempo, RIR. Se abre en Google Sheets.'),
+        h('p', { class: 'nota' }, 'No es un respaldo: la app no lo puede importar.'),
+        h('button', { type: 'button', class: 'boton ancho', onclick: exportarHistorial }, 'Exportar historial (TSV)'),
       ),
       h(
         'section',
@@ -126,6 +130,16 @@ export async function montar(raiz, _parametros, app) {
       app.archivos.descargar(nombre, contenido);
       app.aviso(`Exportado: ${nombre}`, 4000);
       app.refrescar();
+    } catch (error) {
+      app.error(error);
+    }
+  }
+
+  async function exportarHistorial() {
+    try {
+      const { nombre, texto: contenido, renglones } = await app.servicios.respaldo.exportarHistorial();
+      app.archivos.descargar(nombre, contenido, 'text/tab-separated-values');
+      app.aviso(`Exportado: ${nombre} (${renglones} ${renglones === 1 ? 'renglón' : 'renglones'})`, 4000);
     } catch (error) {
       app.error(error);
     }

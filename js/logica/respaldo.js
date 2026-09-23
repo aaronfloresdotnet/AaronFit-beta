@@ -1,5 +1,8 @@
 // Lógica pura: arma y valida el archivo de respaldo (encargo, sección 7).
 // Importar REEMPLAZA todo; por eso aquí se valida a fondo antes de tocar nada.
+// También: el historial en TSV para Sheets y cuándo recordar el respaldo (tanda 2).
+
+import { deTexto, diasEntre } from './semana.js';
 
 export const FORMATO = 'aaronfit-respaldo';
 export const VERSION_FORMATO = 1;
@@ -102,4 +105,53 @@ export function validarRespaldo(entrada) {
     conteos: Object.fromEntries(COLECCIONES.map((c) => [c, datos[c].length])),
     exportado: typeof respaldo.exportado === 'string' ? respaldo.exportado : null,
   };
+}
+
+/** Inicio recuerda el respaldo cuando el último tiene MÁS de estos días. */
+export const DIAS_SIN_RESPALDO = 7;
+
+/**
+ * ¿Toca recordar el respaldo? Solo si hay datos que perder y el último tiene
+ * más de 7 días, o nunca se ha hecho.
+ * @param {{ultimo:string|null, hoy:string, hayDatos:boolean}} p  fechas locales ('2026-09-23')
+ */
+export function recordatorioRespaldo({ ultimo, hoy, hayDatos }) {
+  const dias = ultimo ? diasEntre(deTexto(ultimo), deTexto(hoy)) : null;
+  return { dias, toca: hayDatos && (dias === null || dias > DIAS_SIN_RESPALDO) };
+}
+
+export const nombreHistorial = (fechaTexto) => `aaronfit-historial-${fechaTexto}.tsv`;
+
+const COLUMNAS_HISTORIAL = ['Fecha', 'Semana', 'Día', 'Ejercicio', 'Grupo', 'Serie', 'Lado', 'Peso', 'Unidad', 'Reps', 'Segundos', 'Metros', 'RIR', 'Hecha'];
+const LADO = { izq: 'Izquierdo', der: 'Derecho' };
+const ORDEN_LADO = { izq: 1, der: 2 };
+const celda = (v) => (v === null || v === undefined ? '' : String(v).replace(/[\t\r\n]+/g, ' '));
+
+/**
+ * El historial en TSV para Sheets: un renglón por registro guardado (una
+ * serie por lado son dos renglones, izquierdo y derecho), incluidas las
+ * series saltadas. En orden de fecha, ejercicio y serie. Los minutos van en
+ * la columna de segundos (así se guardan).
+ */
+export function historialTSV({ rutina, sesiones, series }) {
+  const filaPorId = new Map(rutina.map((r) => [r.id, r]));
+  const sesionPorId = new Map(sesiones.map((s) => [s.id, s]));
+  const renglones = series
+    .map((s) => ({ s, r: filaPorId.get(s.rutinaId), se: sesionPorId.get(s.sesionId) }))
+    .sort(
+      (a, b) =>
+        (a.se?.fecha ?? '').localeCompare(b.se?.fecha ?? '') ||
+        (a.se?.inicio ?? '').localeCompare(b.se?.inicio ?? '') ||
+        (a.r?.diaSemana ?? 0) - (b.r?.diaSemana ?? 0) ||
+        (a.r?.orden ?? 0) - (b.r?.orden ?? 0) ||
+        a.s.numeroSerie - b.s.numeroSerie ||
+        (ORDEN_LADO[a.s.lado] ?? 0) - (ORDEN_LADO[b.s.lado] ?? 0),
+    )
+    .map(({ s, r, se }) =>
+      [
+        se?.fecha, s.semanaISO, se?.diaRutina, r?.ejercicio, r?.grupo, s.numeroSerie, LADO[s.lado] ?? '', s.peso, s.unidadPeso,
+        s.repsHechas, s.segundos, s.metros, s.rirReportado, s.completada ? 'sí' : 'no',
+      ].map(celda).join('\t'),
+    );
+  return `${[COLUMNAS_HISTORIAL.join('\t'), ...renglones].join('\n')}\n`;
 }

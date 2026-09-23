@@ -14,6 +14,7 @@ import * as errores from './plataforma/errores.js';
 import { crearPantallaDespierta } from './plataforma/pantalla.js';
 import { crearAlarma } from './plataforma/sonido.js';
 import { servicios } from './servicios/contenedor.js';
+import * as vistaAvance from './vistas/avance.js';
 import * as vistaDia from './vistas/dia.js';
 import * as vistaEjercicio from './vistas/ejercicio.js';
 import * as vistaInicio from './vistas/inicio.js';
@@ -24,6 +25,7 @@ const RUTAS = [
   { patron: /^#\/?$/, vista: vistaInicio, seccion: 'entrenar' },
   { patron: /^#\/dia\/(\d+)$/, vista: vistaDia, seccion: 'entrenar', entrenando: true },
   { patron: /^#\/ejercicio\/(\d+)\/(\d+)$/, vista: vistaEjercicio, seccion: 'entrenar', entrenando: true },
+  { patron: /^#\/avance$/, vista: vistaAvance, seccion: 'avance' },
   { patron: /^#\/medidas$/, vista: vistaMedidas, seccion: 'medidas' },
   { patron: /^#\/respaldo$/, vista: vistaRespaldo, seccion: 'respaldo' },
 ];

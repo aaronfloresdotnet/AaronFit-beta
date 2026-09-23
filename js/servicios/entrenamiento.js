@@ -2,6 +2,7 @@
 // Orquesta los repositorios (datos) y las reglas (lógica pura). No toca el DOM.
 // Recibe sus dependencias al crearse, para poder probarlo sin IndexedDB.
 
+import { recordNuevo } from '../logica/avance.js';
 import { DECISIONES_VACIAS, planSemana, recorrer, saltar } from '../logica/dias.js';
 import { frasesDeAvance, mezclarFrases } from '../logica/frases.js';
 import { evaluarProgresion, referenciaDeAceptar } from '../logica/progresion.js';
@@ -25,7 +26,13 @@ export function avance(ejercicio, seriesSesion) {
   return { hechas, saltadas, total: ejercicio.series, terminado: hechas + saltadas >= ejercicio.series };
 }
 
-export function crearServicioEntrenamiento({ repos, reloj = () => new Date() }) {
+/**
+ * @param {object} p
+ * @param {object} p.repos
+ * @param {() => Date} [p.reloj]
+ * @param {(error:unknown, donde:string) => void} [p.alFallar]  dónde anotar un fallo que no debe detener nada (el récord)
+ */
+export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), alFallar = (error) => console.error(error) }) {
   let rutinaEnMemoria = null;
 
   async function rutina() {
@@ -266,21 +273,38 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date() }) 
     const sesionTerminada = delDia.every((r) => avance(r, despues).terminado);
     const cierre = sesionTerminada && sesion.estado === 'en_curso' ? { ...sesion, estado: 'completa', fin: t.hora } : null;
 
+    // ¿Récord? Se revisa ANTES de guardar, contra todo lo anterior de la clave.
+    // Corregir una serie nunca avisa, y si esta revisión falla, la serie se guarda igual.
+    let record = null;
+    if (!existentes.length) {
+      try {
+        record = recordNuevo({ previas: await repos.series.deRutinas(await idsDeClave(ejercicio.clave)), nuevas, tipoMedida: ejercicio.tipoMedida });
+      } catch (error) {
+        alFallar(error, 'récord');
+      }
+    }
+
     await repos.guardarCaptura({ nuevas, borrar, sesion: cierre });
 
     const progresion = terminado && !estabaTerminado
       ? await evaluar(sesion, ejercicio, despues.filter((s) => s.rutinaId === ejercicio.id))
       : null;
-    return { ejercicioTerminado: terminado, sesionTerminada, progresion, descansoSeg: ejercicio.descansoSeg };
+    return { ejercicioTerminado: terminado, sesionTerminada, progresion, record, descansoSeg: ejercicio.descansoSeg };
   }
 
-  /** "Sí, súbele": guarda la nueva referencia (y el implemento, si cambió). */
+  /**
+   * "Sí, súbele": guarda la nueva referencia (y el implemento, si cambió), y
+   * anota el aviso en la lista de avisos aceptados (las marcas de la gráfica).
+   */
   async function aceptarProgresion({ sesionId, rutinaId, propuesta }) {
     const t = ahora();
-    const [sesion, todas] = await Promise.all([repos.sesiones.obtener(sesionId), rutina()]);
+    const [sesion, todas, avisos] = await Promise.all([repos.sesiones.obtener(sesionId), rutina(), repos.estado.leer('avisosAceptados')]);
     const ejercicio = todas.find((r) => r.id === rutinaId);
     const referencia = referenciaDeAceptar(propuesta, { hora: t.hora, semanaISO: sesion.semanaISO });
-    const cambios = [[`referencia:${ejercicio.clave}`, referencia]];
+    const cambios = [
+      [`referencia:${ejercicio.clave}`, referencia],
+      ['avisosAceptados', [...(avisos ?? []), { clave: ejercicio.clave, sesionId, ...referencia }]],
+    ];
     if (propuesta.implemento) {
       cambios.push([`implemento:${ejercicio.clave}`, { texto: propuesta.implemento, desde: t.fecha, hora: t.hora }]);
     }
@@ -301,15 +325,18 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date() }) 
     const ultima = completadas.reduce((a, b) => (b.hora > a.hora ? b : a));
     const deshechas = series.filter((s) => s.rutinaId === ultima.rutinaId && s.numeroSerie === ultima.numeroSerie);
     const ejercicio = todas.find((r) => r.id === ultima.rutinaId);
-    const [referencia, implemento] = await Promise.all([
+    const [referencia, implemento, avisos] = await Promise.all([
       repos.estado.leer(`referencia:${ejercicio.clave}`),
       repos.estado.leer(`implemento:${ejercicio.clave}`),
+      repos.estado.leer('avisosAceptados'),
     ]);
     const borrarEstado = [];
     if (referencia && referencia.hora >= ultima.hora) borrarEstado.push(`referencia:${ejercicio.clave}`);
     if (implemento?.hora && implemento.hora >= ultima.hora) borrarEstado.push(`implemento:${ejercicio.clave}`);
+    const quedan = (avisos ?? []).filter((a) => !(a.clave === ejercicio.clave && a.hora >= ultima.hora));
+    const escribirEstado = avisos && quedan.length !== avisos.length ? [['avisosAceptados', quedan]] : [];
     const reabrir = sesion.estado === 'completa' ? { ...sesion, estado: 'en_curso', fin: null } : null;
-    await repos.deshacerCaptura({ borrarSeries: deshechas.map((s) => s.id), sesion: reabrir, borrarEstado });
+    await repos.deshacerCaptura({ borrarSeries: deshechas.map((s) => s.id), sesion: reabrir, borrarEstado, escribirEstado });
 
     const campo = CAMPO_VALOR[ejercicio.tipoMedida];
     const lado = (l) => deshechas.find((s) => s.lado === l)?.[campo] ?? null;

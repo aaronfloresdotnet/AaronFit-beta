@@ -33,6 +33,7 @@ export const sesiones = {
 };
 
 export const series = {
+  todas: () => leer('series', (s) => s.getAll()),
   deSesion: (sesionId) => leer('series', (s) => s.index('sesionId').getAll(sesionId)),
 
   /** Todas las series de varios renglones de rutina (un ejercicio puede repetirse en la semana). */
@@ -61,15 +62,17 @@ export function guardarCaptura({ nuevas, borrar = [], sesion }) {
 
 /**
  * Deshace una captura en UNA transacción: borra sus series, reabre la sesión
- * si esa captura la había cerrado y quita los avisos aceptados después de ella.
+ * si esa captura la había cerrado y quita (o reescribe, como la lista de
+ * avisos aceptados) lo que se guardó en `estado` después de ella.
  */
-export function deshacerCaptura({ borrarSeries, sesion, borrarEstado = [] }) {
+export function deshacerCaptura({ borrarSeries, sesion, borrarEstado = [], escribirEstado = [] }) {
   return enTransaccion(['series', 'sesiones', 'estado'], 'readwrite', (tx) => {
     const series = tx.objectStore('series');
     for (const id of borrarSeries) series.delete(id);
     if (sesion) tx.objectStore('sesiones').put(sesion);
     const estado = tx.objectStore('estado');
     for (const llave of borrarEstado) estado.delete(llave);
+    for (const [llave, valor] of escribirEstado) estado.put({ llave, valor });
   });
 }
 

@@ -3,7 +3,7 @@
 
 import { h, pintar } from '../componentes/dom.js';
 import { preguntar } from '../componentes/dialogo.js';
-import { INICIALES_DIA, fechaCorta, fechaLarga, partesDia } from '../logica/formato.js';
+import { INICIALES_DIA, fechaCorta, fechaLarga, numero, partesDia } from '../logica/formato.js';
 
 const ICONO = { hecho: '✓', en_curso: '◐', saltado: '✕', no_cabe: '✕', no_hecho: '✕', vencido: '!', hoy: '●', pendiente: '·' };
 const ESTADO = {
@@ -14,7 +14,18 @@ const ESTADO = {
 const mayuscula = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 export async function montar(raiz, _parametros, app) {
-  const d = await app.servicios.entrenamiento.resumenInicio();
+  // Lo de la tanda 2 (respaldo y semana pasada) es un extra: si falla, se
+  // anota en el registro de errores y la pantalla de entrenar sale igual.
+  const extra = (promesa, donde) =>
+    promesa.catch((error) => {
+      app.errores.registrarError(error, donde);
+      return null;
+    });
+  const [d, respaldo, semanaPasada] = await Promise.all([
+    app.servicios.entrenamiento.resumenInicio(),
+    extra(app.servicios.respaldo.situacion(), 'inicio: respaldo'),
+    extra(app.servicios.avance.semanaPasadaParaInicio(), 'inicio: semana pasada'),
+  ]);
   const enCursoOtroDia = d.enCurso && d.enCurso.diaSemanaPlan !== d.hoyToca?.dia ? d.enCurso : null;
 
   pintar(
@@ -30,7 +41,15 @@ export async function montar(raiz, _parametros, app) {
     d.vencido ? tarjetaVencido(d) : tarjetaHoy(d),
     d.caminata ? tarjetaCaminata(d.caminata) : null,
     tiraSemana(d),
+    semanaPasada ? tarjetaSemanaPasada(semanaPasada) : null,
     d.recordarMedidas ? h('a', { class: 'tarjeta recordatorio', href: '#/medidas' }, 'Es sábado: toca tomarte medidas ›') : null,
+    respaldo?.toca
+      ? h(
+          'a',
+          { class: 'tarjeta recordatorio', href: '#/respaldo' },
+          respaldo.dias === null ? 'Todavía no respaldas tus datos ›' : `Hace ${respaldo.dias} días que no respaldas ›`,
+        )
+      : null,
   );
 
   async function entrenar(dia) {
@@ -151,6 +170,22 @@ export async function montar(raiz, _parametros, app) {
     await app.servicios.entrenamiento.terminarSesion(s.id);
     app.refrescar();
   }
+}
+
+/** Lunes y martes: cómo te fue la semana pasada (el detalle está en Avance). */
+function tarjetaSemanaPasada(r) {
+  const MAXIMO = 5;
+  const subio = r.subio.map((s) => (s.tipo === 'peso' ? `${s.ejercicio} (${numero(s.ahora)} ${s.unidad}${s.pesoPorLado ? ' c/u' : ''})` : s.ejercicio));
+  const resto = subio.length - MAXIMO;
+  const texto = resto > 0 ? `${subio.slice(0, MAXIMO).join(', ')} y ${resto} más` : subio.join(', ');
+  return h(
+    'a',
+    { class: 'tarjeta tarjeta-resumen', href: '#/avance' },
+    h('div', { class: 'etiqueta' }, 'La semana pasada'),
+    h('p', {}, h('strong', {}, `${r.dias.hechos} de ${r.dias.plan} días`), ` de fuerza · ${r.series.hechas} de ${r.series.plan} series`),
+    h('p', { class: 'sub' }, subio.length ? `Subiste: ${texto}.` : 'Nada subió contra la vez anterior.'),
+    h('span', { class: 'fila-simple' }, 'Ver tu avance ›'),
+  );
 }
 
 function tiraSemana(d) {

@@ -4,5 +4,5 @@ export const CONFIG = Object.freeze({
   "nombre": "AaronFit Beta",
   "nombreBD": "entrena-beta",
   "prefijoCache": "beta-aaronfit-",
-  "version": "beta+a0469a9"
+  "version": "beta+3510635"
 });
