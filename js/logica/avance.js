@@ -10,6 +10,7 @@
 // - Las fechas llegan como texto local ('2026-09-21'); aquí no se lee el reloj.
 
 import { DECISIONES_VACIAS, DIAS_FUERZA, planSemana } from './dias.js';
+import { esDiaDeCaminata, numeroDePlan } from './plan.js';
 import { porNumero } from './referencia.js';
 import { aTexto, fechaDeDia, lunesDeSemana, semanaISO, semanasEntre, sumarDias } from './semana.js';
 
@@ -150,11 +151,12 @@ export function puntosPorClave({ rutina, sesiones, series }) {
 /**
  * Qué subió en `semana` contra la última sesión anterior a esa semana:
  * con peso, el peso de trabajo; sin peso, la mejor serie. Solo días de fuerza.
+ * `rutina`: los renglones de la rutina que regía esa semana.
  */
 export function queSubio({ semana, rutina, puntos }) {
   const lista = [];
   const vistas = new Set();
-  for (const r of rutina.filter((x) => x.diaSemana <= 5).sort(porDiaYOrden)) {
+  for (const r of rutina.filter((x) => !esDiaDeCaminata(x.dia)).sort(porDiaYOrden)) {
     if (vistas.has(r.clave)) continue;
     vistas.add(r.clave);
     const deClave = puntos.get(r.clave) ?? [];
@@ -178,11 +180,14 @@ export function queSubio({ semana, rutina, puntos }) {
   return lista;
 }
 
-/** Resumen de una semana: días de fuerza, caminatas, series y qué subió (contra lo planeado). */
+/**
+ * Resumen de una semana: días de fuerza, caminatas, series y qué subió (contra lo planeado).
+ * `rutina`: los renglones de la rutina que regía esa semana.
+ */
 export function resumenSemana({ semana, rutina, sesiones, series, puntos }) {
-  const fuerza = rutina.filter((r) => r.diaSemana <= 5);
+  const fuerza = rutina.filter((r) => !esDiaDeCaminata(r.dia));
   const diasFuerza = new Set(fuerza.map((r) => r.diaSemana));
-  const diasCaminata = new Set(rutina.filter((r) => r.diaSemana > 5).map((r) => r.diaSemana));
+  const diasCaminata = new Set(rutina.filter((r) => esDiaDeCaminata(r.dia)).map((r) => r.diaSemana));
   const completas = sesiones.filter((s) => s.semanaISO === semana && s.estado === 'completa');
   const idsFuerza = new Set(fuerza.map((r) => r.id));
   const hechas = new Set(
@@ -210,22 +215,32 @@ export function ultimasSemanas(inicio, actual, cuantas) {
 const EN_CURSO = { vencido: 'pendiente', hoy: 'hoy', pendiente: 'por_venir', no_cabe: 'no_hecho' };
 
 /**
- * Constancia: cada semana con sus cinco días de fuerza.
+ * Constancia: cada semana con sus días de fuerza (los de la rutina que regía;
+ * sin `diasPorSemana`, lunes a viernes). Las columnas son todos los días de
+ * fuerza que aparecen; el que no era de fuerza en una semana queda «no_aplica».
  * Estados: hecho, recorrido, saltado, no_hecho, en_curso (sin terminar), y en
  * la semana actual también pendiente, hoy y por_venir. «antes» son los días
  * de la primera semana previos a tu primera sesión: no cuentan.
  * El porcentaje se calcula solo con semanas cerradas (la actual va aparte).
- * @param {{semanas:string[], sesiones:object[], decisiones:Record<string, object>, hoy:{semana:string, dia:number}}} p
+ * @param {{semanas:string[], sesiones:object[], decisiones:Record<string, object>, hoy:{semana:string, dia:number},
+ *          diasPorSemana?:Record<string, {fuerza:number[], caminata:number[]}>}} p
  */
-export function constancia({ semanas, sesiones, decisiones, hoy }) {
-  const fuerza = sesiones.filter((s) => s.diaSemanaPlan <= 5);
-  const primera = fuerza.map((s) => s.fecha).sort()[0] ?? null;
+export function constancia({ semanas, sesiones, decisiones, hoy, diasPorSemana = {} }) {
+  const fuerzaDe = (semana) => diasPorSemana[semana]?.fuerza ?? DIAS_FUERZA;
+  const caminataDe = (semana) => diasPorSemana[semana]?.caminata ?? [6, 7];
+  const deFuerza = sesiones.filter((s) => fuerzaDe(s.semanaISO).includes(s.diaSemanaPlan));
+  const primera = deFuerza.map((s) => s.fecha).sort()[0] ?? null;
+  const columnas = [...new Set(semanas.flatMap(fuerzaDe))].sort((a, b) => a - b);
   const filas = semanas.map((semana) => {
-    const deSemana = fuerza.filter((s) => s.semanaISO === semana);
+    const fuerza = fuerzaDe(semana);
+    const deSemana = deFuerza.filter((s) => s.semanaISO === semana);
     const tomadas = decisiones[semana] ?? DECISIONES_VACIAS;
     const actual = semana === hoy.semana;
-    const plan = actual ? planSemana({ hoy: hoy.dia, sesiones: deSemana, decisiones: tomadas }) : null;
-    const dias = DIAS_FUERZA.map((dia) => {
+    const plan = actual
+      ? planSemana({ hoy: hoy.dia, sesiones: deSemana, decisiones: tomadas, diasFuerza: fuerza, diasCaminata: caminataDe(semana) })
+      : null;
+    const dias = columnas.map((dia) => {
+      if (!fuerza.includes(dia)) return { dia, estado: 'no_aplica' };
       const propias = deSemana.filter((s) => s.diaSemanaPlan === dia);
       const completa = propias.find((s) => s.estado === 'completa');
       let estado;
@@ -233,7 +248,7 @@ export function constancia({ semanas, sesiones, decisiones, hoy }) {
       else if (propias.some((s) => s.estado === 'en_curso')) estado = 'en_curso';
       else if (tomadas.saltados.includes(dia)) estado = 'saltado';
       else if (primera && aTexto(fechaDeDia(semana, dia)) < primera) estado = 'antes';
-      else if (actual) estado = EN_CURSO[plan.dias[dia - 1].estado] ?? 'no_hecho';
+      else if (actual) estado = EN_CURSO[plan.dias.find((d) => d.dia === dia).estado] ?? 'no_hecho';
       else estado = 'no_hecho';
       return { dia, estado };
     });
@@ -243,11 +258,12 @@ export function constancia({ semanas, sesiones, decisiones, hoy }) {
       actual,
       dias,
       hechos: dias.filter((d) => d.estado === 'hecho' || d.estado === 'recorrido').length,
-      cuentan: dias.filter((d) => d.estado !== 'antes').length,
+      cuentan: dias.filter((d) => d.estado !== 'antes' && d.estado !== 'no_aplica').length,
     };
   });
   const cerradas = filas.filter((f) => !f.actual);
   return {
+    columnas,
     filas,
     cerradas: {
       semanas: cerradas.length,
@@ -257,27 +273,42 @@ export function constancia({ semanas, sesiones, decisiones, hoy }) {
   };
 }
 
-/** Series hechas por grupo muscular (los de tu hoja) en dos semanas, contra lo planeado. */
-export function seriesPorGrupo({ rutina, series, actual, anterior }) {
-  const grupos = new Map();
-  for (const r of rutina.filter((x) => x.diaSemana <= 5).sort(porDiaYOrden)) {
-    const g = grupos.get(r.grupo) ?? { grupo: r.grupo, plan: 0, ids: new Set() };
-    g.plan += r.series;
-    g.ids.add(r.id);
-    grupos.set(r.grupo, g);
-  }
-  const hechasEn = (semana) => series.filter((s) => s.semanaISO === semana && s.completada);
-  const deActual = hechasEn(actual);
-  const deAnterior = hechasEn(anterior);
-  const contar = (lista, ids) => new Set(lista.filter((s) => ids.has(s.rutinaId)).map((s) => `${s.rutinaId}:${s.numeroSerie}`)).size;
-  return [...grupos.values()].map((g) => ({ grupo: g.grupo, plan: g.plan, actual: contar(deActual, g.ids), anterior: contar(deAnterior, g.ids) }));
+/**
+ * Series hechas por grupo muscular (los de tu hoja) en dos semanas, cada una
+ * contra lo planeado en la rutina que regía esa semana.
+ * @param {{actual:{semana:string, rutina:object[]}, anterior:{semana:string, rutina:object[]}, series:object[]}} p
+ */
+export function seriesPorGrupo({ actual, anterior, series }) {
+  const planPorGrupo = (rutina) => {
+    const grupos = new Map();
+    for (const r of rutina.filter((x) => !esDiaDeCaminata(x.dia)).sort(porDiaYOrden)) {
+      const g = grupos.get(r.grupo) ?? { plan: 0, ids: new Set() };
+      g.plan += r.series;
+      g.ids.add(r.id);
+      grupos.set(r.grupo, g);
+    }
+    return grupos;
+  };
+  const contar = (semana, grupo) => {
+    if (!grupo) return 0;
+    const hechas = series.filter((s) => s.semanaISO === semana && s.completada && grupo.ids.has(s.rutinaId));
+    return new Set(hechas.map((s) => `${s.rutinaId}:${s.numeroSerie}`)).size;
+  };
+  const deActual = planPorGrupo(actual.rutina);
+  const deAnterior = planPorGrupo(anterior.rutina);
+  const nombres = [...new Set([...deActual.keys(), ...deAnterior.keys()])];
+  return nombres.map((grupo) => ({
+    grupo,
+    actual: { hechas: contar(actual.semana, deActual.get(grupo)), plan: deActual.get(grupo)?.plan ?? 0 },
+    anterior: { hechas: contar(anterior.semana, deAnterior.get(grupo)), plan: deAnterior.get(grupo)?.plan ?? 0 },
+  }));
 }
 
-/** Un renglón por ejercicio (clave) con historial, en el orden de la rutina. */
+/** Un renglón por ejercicio (clave) con historial, en el orden de la rutina más nueva que lo trae. */
 export function ejerciciosConHistorial({ rutina, puntos }) {
   const lista = [];
   const vistas = new Set();
-  for (const r of [...rutina].sort(porDiaYOrden)) {
+  for (const r of [...rutina].sort((a, b) => numeroDePlan(b) - numeroDePlan(a) || porDiaYOrden(a, b))) {
     if (vistas.has(r.clave)) continue;
     vistas.add(r.clave);
     const deClave = puntos.get(r.clave) ?? [];

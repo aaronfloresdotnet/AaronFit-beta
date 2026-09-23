@@ -5,6 +5,7 @@
 import { estancamiento, puntosDeEjercicio, recordNuevo } from '../logica/avance.js';
 import { DECISIONES_VACIAS, planSemana, recorrer, saltar } from '../logica/dias.js';
 import { calentamiento, implementoDe, normalizarEquipo } from '../logica/equipo.js';
+import { diasDelPlan, listaDePlanes, planDeSemana, renglonesDeSemana } from '../logica/plan.js';
 import { frasesDeAvance, mezclarFrases } from '../logica/frases.js';
 import { evaluarProgresion, referenciaDeAceptar } from '../logica/progresion.js';
 import { porNumero, precargar, seriesDeUltimaSesion } from '../logica/referencia.js';
@@ -47,18 +48,29 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     return { hora: instante.toISOString(), fecha: aTexto(fecha), semana: semanaISO(fecha), dia: diaSemana(fecha) };
   }
 
-  const ejerciciosDelDia = async (dia) => (await rutina()).filter((r) => r.diaSemana === dia).sort(porOrden);
-  const nombreDelDia = async (dia) => (await rutina()).find((r) => r.diaSemana === dia)?.dia ?? '';
+  // Tanda 4: puede haber varias rutinas (planes) en el tiempo; cada semana usa
+  // la que rige en ella, y cada sesión la de su semana. El historial de un
+  // ejercicio sigue entre planes por su clave (idsDeClave mira todos).
+  const planesGuardados = () => repos.estado.leer('planes');
+  async function delPlan(semana) {
+    const [todas, planes] = await Promise.all([rutina(), planesGuardados()]);
+    return renglonesDeSemana(todas, planes, semana);
+  }
+  const ejerciciosDelDia = async (dia, semana) => (await delPlan(semana)).filter((r) => r.diaSemana === dia).sort(porOrden);
+  const nombreDelDia = async (dia, semana) => (await delPlan(semana)).find((r) => r.diaSemana === dia)?.dia ?? '';
   const decisionesDe = async (semana) => (await repos.estado.leer(`semana:${semana}`)) ?? DECISIONES_VACIAS;
   const idsDeClave = async (clave) => (await rutina()).filter((r) => r.clave === clave).map((r) => r.id);
 
+  /** Semana del programa: la 1 es la del inicio de la rutina que rige (la primera, desde tu primera sesión). */
   async function semanaDelPrograma(semana) {
-    const inicio = await repos.estado.leer('inicioPrograma');
+    const planes = listaDePlanes(await planesGuardados());
+    const numero = planDeSemana(planes, semana);
+    const inicio = numero === 1 ? await repos.estado.leer('inicioPrograma') : planes.find((p) => p.numero === numero)?.desde;
     return inicio ? semanasEntre(inicio, semana) + 1 : 1;
   }
 
   async function resumenDeSesion(sesion) {
-    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan), repos.series.deSesion(sesion.id)]);
+    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan, sesion.semanaISO), repos.series.deSesion(sesion.id)]);
     let hechas = 0;
     let total = 0;
     for (const ejercicio of ejercicios) {
@@ -70,10 +82,10 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     return { id, diaRutina, diaSemanaPlan, fecha, estado, recorrido, inicio, fin, hechas, total };
   }
 
-  async function conNombre(dia) {
+  async function conNombre(dia, semana) {
     if (!dia) return null;
-    const ejercicios = await ejerciciosDelDia(dia);
-    return { dia, nombre: await nombreDelDia(dia), ejercicios: ejercicios.length, primero: ejercicios[0]?.ejercicio ?? '' };
+    const ejercicios = await ejerciciosDelDia(dia, semana);
+    return { dia, nombre: await nombreDelDia(dia, semana), ejercicios: ejercicios.length, primero: ejercicios[0]?.ejercicio ?? '' };
   }
 
   /** Todo lo que muestra la pantalla de inicio. */
@@ -85,15 +97,18 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
       repos.sesiones.enCurso(),
       repos.medidas.deSemana(t.semana),
     ]);
-    const plan = planSemana({ hoy: t.dia, sesiones, decisiones });
+    const { fuerza, caminata } = diasDelPlan(await delPlan(t.semana));
+    const conDias = { diasFuerza: fuerza, diasCaminata: caminata };
+    const plan = planSemana({ hoy: t.dia, sesiones, decisiones, ...conDias });
     const completa = (dia) => sesiones.some((s) => s.diaSemanaPlan === dia && s.estado === 'completa');
 
     const dias = [];
-    for (const d of plan.dias) dias.push({ ...d, nombre: await nombreDelDia(d.dia) });
-    for (const dia of [6, 7]) {
+    for (const d of plan.dias) dias.push({ ...d, nombre: await nombreDelDia(d.dia, t.semana) });
+    for (const dia of caminata) {
       const estado = completa(dia) ? 'hecho' : dia === t.dia ? 'hoy' : dia < t.dia ? 'no_hecho' : 'pendiente';
-      dias.push({ dia, programado: dia, estado, nombre: await nombreDelDia(dia) });
+      dias.push({ dia, programado: dia, estado, nombre: await nombreDelDia(dia, t.semana) });
     }
+    dias.sort((a, b) => a.dia - b.dia);
 
     const hechasHoy = [];
     for (const s of sesiones.filter((x) => x.fecha === t.fecha && x.estado === 'completa')) {
@@ -104,10 +119,10 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     // Si hay un día perdido, qué días ya no cabrían si se recorre (para decidir informado).
     let vencido = null;
     if (plan.vencido) {
-      const siRecorre = planSemana({ hoy: t.dia, sesiones, decisiones: recorrer(decisiones, plan.vencido, t.dia) });
+      const siRecorre = planSemana({ hoy: t.dia, sesiones, decisiones: recorrer(decisiones, plan.vencido, t.dia), ...conDias });
       const noCabrian = [];
-      for (const d of siRecorre.dias.filter((x) => x.estado === 'no_cabe')) noCabrian.push(await nombreDelDia(d.dia));
-      vencido = { ...(await conNombre(plan.vencido)), noCabrian };
+      for (const d of siRecorre.dias.filter((x) => x.estado === 'no_cabe')) noCabrian.push(await nombreDelDia(d.dia, t.semana));
+      vencido = { ...(await conNombre(plan.vencido, t.semana)), noCabrian };
     }
 
     return {
@@ -117,8 +132,8 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
       semanaPrograma: await semanaDelPrograma(t.semana),
       dias,
       vencido,
-      hoyToca: plan.hoyToca ? { ...(await conNombre(plan.hoyToca)), recorrido: plan.hoyToca !== t.dia } : null,
-      caminata: plan.caminata && !completa(plan.caminata) ? await conNombre(plan.caminata) : null,
+      hoyToca: plan.hoyToca ? { ...(await conNombre(plan.hoyToca, t.semana)), recorrido: plan.hoyToca !== t.dia } : null,
+      caminata: plan.caminata && !completa(plan.caminata) ? await conNombre(plan.caminata, t.semana) : null,
       enCurso: abiertas.length ? await resumenDeSesion(abiertas[0]) : null,
       hechasHoy,
       recordarMedidas: t.dia === 6 && medidasSemana.length === 0,
@@ -142,7 +157,7 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     const id = await repos.sesiones.guardar({
       fecha: t.fecha,
       semanaISO: t.semana,
-      diaRutina: await nombreDelDia(dia),
+      diaRutina: await nombreDelDia(dia, t.semana),
       diaSemanaPlan: dia,
       recorrido: dia !== t.dia,
       estado: 'en_curso',
@@ -150,14 +165,15 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
       fin: null,
     });
     // La semana 1 del programa es la de la primera sesión de fuerza.
-    if (dia <= 5 && !(await repos.estado.leer('inicioPrograma'))) await repos.estado.escribir('inicioPrograma', t.semana);
+    const { fuerza } = diasDelPlan(await delPlan(t.semana));
+    if (fuerza.includes(dia) && !(await repos.estado.leer('inicioPrograma'))) await repos.estado.escribir('inicioPrograma', t.semana);
     return id;
   }
 
   async function datosDia(sesionId) {
     const sesion = await repos.sesiones.obtener(sesionId);
     if (!sesion) return null;
-    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan), repos.series.deSesion(sesionId)]);
+    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan, sesion.semanaISO), repos.series.deSesion(sesionId)]);
     const referencias = await Promise.all(ejercicios.map((e) => repos.estado.leer(`referencia:${e.clave}`)));
     const lista = ejercicios.map((ejercicio, i) => ({
       ejercicio,
@@ -174,8 +190,9 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
   async function datosEjercicio(sesionId, rutinaId) {
     const [sesion, todas] = await Promise.all([repos.sesiones.obtener(sesionId), rutina()]);
     const ejercicio = todas.find((r) => r.id === rutinaId);
-    if (!sesion || !ejercicio || ejercicio.diaSemana !== sesion.diaSemanaPlan) return null;
-    const delDia = todas.filter((r) => r.diaSemana === sesion.diaSemanaPlan).sort(porOrden);
+    if (!sesion || !ejercicio) return null;
+    const delDia = await ejerciciosDelDia(sesion.diaSemanaPlan, sesion.semanaISO);
+    if (!delDia.some((r) => r.id === rutinaId)) return null; // de otro día u otra rutina
     const [seriesClave, referencia, implemento, seriesSesion, nota, equipoGuardado, avisos, sesiones] = await Promise.all([
       repos.series.deRutinas(await idsDeClave(ejercicio.clave)),
       repos.estado.leer(`referencia:${ejercicio.clave}`),
@@ -261,7 +278,7 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     const t = ahora();
     const [sesion, todas] = await Promise.all([repos.sesiones.obtener(captura.sesionId), rutina()]);
     const ejercicio = todas.find((r) => r.id === captura.rutinaId);
-    const delDia = todas.filter((r) => r.diaSemana === sesion.diaSemanaPlan);
+    const delDia = await ejerciciosDelDia(sesion.diaSemanaPlan, sesion.semanaISO);
     const seriesSesion = await repos.series.deSesion(sesion.id);
     const existentes = seriesSesion.filter((s) => s.rutinaId === ejercicio.id && s.numeroSerie === captura.numeroSerie);
     const campo = CAMPO_VALOR[ejercicio.tipoMedida];
@@ -416,10 +433,11 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
         semanas: semanasEntre(primera.semanaISO, ultima.semanaISO),
       });
     }
-    const hechosSemana = new Set(sesionesSemana.filter((s) => s.estado === 'completa' && s.diaSemanaPlan <= 5).map((s) => s.diaSemanaPlan));
+    const { fuerza } = diasDelPlan(await delPlan(t.semana));
+    const hechosSemana = new Set(sesionesSemana.filter((s) => s.estado === 'completa' && fuerza.includes(s.diaSemanaPlan)).map((s) => s.diaSemanaPlan));
     const propias = frasesDeAvance(avances, {
       entrenamientos: sesiones.filter((s) => s.estado === 'completa').length,
-      diasSemana: 5,
+      diasSemana: fuerza.length,
       diasHechos: hechosSemana.size,
     });
     return mezclarFrases(propias, azar);
@@ -434,7 +452,7 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     const t = ahora();
     const sesion = await repos.sesiones.obtener(sesionId);
     if (sesion.estado !== 'en_curso') return resumenDeSesion(sesion);
-    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan), repos.series.deSesion(sesionId)]);
+    const [ejercicios, series] = await Promise.all([ejerciciosDelDia(sesion.diaSemanaPlan, sesion.semanaISO), repos.series.deSesion(sesionId)]);
     if (!series.some((s) => s.completada)) {
       await repos.sesiones.guardar({ ...sesion, estado: 'abandonada', fin: t.hora });
     } else {

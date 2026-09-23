@@ -9,6 +9,7 @@ import { prepararRutina } from './arranque.js';
 import { crearServicioAvance } from './avance.js';
 import { crearServicioEntrenamiento } from './entrenamiento.js';
 import { crearServicioMedidas } from './medidas.js';
+import { crearServicioPlan } from './plan.js';
 import { crearServicioRespaldo } from './respaldo.js';
 
 const reloj = () => new Date();
@@ -21,6 +22,13 @@ export const servicios = {
   entrenamiento,
   ajustes: crearServicioAjustes({ repos }),
   avance: crearServicioAvance({ repos, reloj }),
+  // Tanda 4: cambiar de rutina. Tras programar una, la rutina en memoria se vuelve a leer.
+  plan: crearServicioPlan({
+    repos,
+    reloj,
+    ligasConVideo: async () => Object.keys(await cargarVideos()),
+    despuesDeCambiar: () => entrenamiento.olvidarRutina(),
+  }),
   medidas: crearServicioMedidas({ repos, reloj }),
   respaldo: crearServicioRespaldo({
     repos,

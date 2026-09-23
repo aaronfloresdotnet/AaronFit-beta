@@ -41,7 +41,7 @@ const MEDIDAS = { reps: 'reps', s: 'segundos', m: 'metros', min: 'minutos' };
  * '40 m' → metros; '2 min' → minutos (en minutos, como viene en la hoja).
  */
 export function parsearReps(texto) {
-  const m = texto.trim().match(/^(\d+)(?:-(\d+))?(?: (s|m|min))?(?: por (pie|pierna|brazo))?$/);
+  const m = texto.trim().match(/^(\d+)(?:-(\d+))?(?: (s|m|min))?(?: por (pie|pierna|brazo|lado))?$/);
   if (!m) throw new Error(`Repeticiones no reconocidas: "${texto}"`);
   const repsMin = Number(m[1]);
   return {
@@ -73,11 +73,77 @@ export function parsearPeso(texto) {
 }
 
 // Encargo 5.6: '2-3 min' son 150 s, '2 min' 120, '90 s' 90, '60 s' 60, '0' sin cronómetro.
-// '-' (caminatas) también es sin cronómetro.
-const DESCANSOS = { '0': 0, '-': 0, '60 s': 60, '90 s': 90, '2 min': 120, '2-3 min': 150 };
-
+// '-' (caminatas) también es sin cronómetro. Tanda 4: cualquier 'N s', 'N min' o
+// 'N-M min' (un rango vale su punto medio, como '2-3 min' = 150 s).
 export function parsearDescanso(texto) {
   const t = texto.trim();
-  if (!Object.hasOwn(DESCANSOS, t)) throw new Error(`Descanso no reconocido: "${texto}"`);
-  return DESCANSOS[t];
+  if (t === '0' || t === '-') return 0;
+  let m = t.match(/^(\d+) s$/);
+  if (m) return Number(m[1]);
+  m = t.match(/^(\d+) min$/);
+  if (m) return Number(m[1]) * 60;
+  m = t.match(/^(\d+)-(\d+) min$/);
+  if (m && Number(m[1]) < Number(m[2])) return ((Number(m[1]) + Number(m[2])) / 2) * 60;
+  throw new Error(`Descanso no reconocido: "${texto}"`);
+}
+
+// ---- Reglas de progresión en texto (tanda 4) ----
+// Una mini-sintaxis que la hoja y la IA pueden escribir, y la app entiende:
+//   manual
+//   todas 10 +5 kg                 todas las series llegan a 10 → sube 5 kg
+//   todas 15 +? kg                 igual, pero el peso nuevo lo decides tú
+//   tiempo +10 hasta 70            sube 10 s cada semana, hasta 70
+//   implemento 6: Banda roja       todas llegan a 6 → cambia de implemento
+//   implemento 15: Mancuerna de 20 lb = 20 lb        …y con ese peso (c/u si son dos)
+//   dos semanas 10: Subí 5 kg = +5 kg | Bajé el banco = Banco más bajo
+//                                  dos semanas seguidas → eliges una opción
+
+/** Texto de regla → la regla que evalúa la app. Lanza error si no la reconoce. */
+export function parsearRegla(texto) {
+  const t = texto.trim().replace(/\s+/g, ' ');
+  if (/^manual$/i.test(t)) return { tipo: 'manual' };
+  let m = t.match(/^todas (\d+) \+(\?|\d+(?:\.\d+)?) (kg|lb)$/i);
+  if (m) return { tipo: 'todas_las_series', objetivo: Number(m[1]), incremento: m[2] === '?' ? null : Number(m[2]), unidad: m[3].toLowerCase() };
+  m = t.match(/^tiempo \+(\d+) hasta (\d+)$/i);
+  if (m) return { tipo: 'incremento_semanal_tiempo', incremento: Number(m[1]), tope: Number(m[2]) };
+  m = t.match(new RegExp(`^implemento (\\d+): (.+?)(?: = ${NUMERO} (kg|lb)( c/u)?)?$`, 'i'));
+  if (m) {
+    const regla = { tipo: 'cambio_de_implemento', objetivo: Number(m[1]), cambio: m[2].trim() };
+    if (m[3]) Object.assign(regla, { peso: Number(m[3]), unidad: m[4].toLowerCase(), pesoPorLado: Boolean(m[5]) });
+    return regla;
+  }
+  m = t.match(/^dos semanas (\d+): (.+)$/i);
+  if (m) {
+    const opciones = m[2].split('|').map((parte) => {
+      const opcion = parte.trim();
+      const conPeso = opcion.match(new RegExp(`^(.+?) = \\+${NUMERO} (kg|lb)$`, 'i'));
+      if (conPeso) return { etiqueta: conPeso[1].trim(), incremento: Number(conPeso[2]), unidad: conPeso[3].toLowerCase() };
+      const conCambio = opcion.match(/^(.+?) = (.+)$/);
+      if (conCambio) return { etiqueta: conCambio[1].trim(), cambio: conCambio[2].trim() };
+      throw new Error(`Opción de regla no reconocida: "${opcion}" (en "${texto}")`);
+    });
+    if (opciones.length < 2) throw new Error(`«dos semanas» necesita al menos dos opciones: "${texto}"`);
+    return { tipo: 'todas_las_series_dos_semanas', objetivo: Number(m[1]), opciones };
+  }
+  throw new Error(`Regla no reconocida: "${texto}"`);
+}
+
+/** La regla en su texto (lo inverso de parsearRegla). */
+export function reglaATexto(regla) {
+  switch (regla?.tipo) {
+    case 'manual':
+      return 'manual';
+    case 'todas_las_series':
+      return `todas ${regla.objetivo} +${regla.incremento ?? '?'} ${regla.unidad}`;
+    case 'incremento_semanal_tiempo':
+      return `tiempo +${regla.incremento} hasta ${regla.tope}`;
+    case 'cambio_de_implemento':
+      return `implemento ${regla.objetivo}: ${regla.cambio}${'peso' in regla ? ` = ${regla.peso} ${regla.unidad}${regla.pesoPorLado ? ' c/u' : ''}` : ''}`;
+    case 'todas_las_series_dos_semanas':
+      return `dos semanas ${regla.objetivo}: ${regla.opciones
+        .map((o) => (o.cambio ? `${o.etiqueta} = ${o.cambio}` : `${o.etiqueta} = +${o.incremento} ${o.unidad}`))
+        .join(' | ')}`;
+    default:
+      throw new Error(`Tipo de regla desconocido: ${regla?.tipo}`);
+  }
 }

@@ -6,6 +6,7 @@ import {
   records, resumenSemana, SEMANAS_CONSTANCIA, seriesPorGrupo, ultimasSemanas,
 } from '../logica/avance.js';
 import { DECISIONES_VACIAS } from '../logica/dias.js';
+import { diasDelPlan, numeroDePlan, renglonesDeSemana } from '../logica/plan.js';
 import { aTexto, diaSemana, fechaLocal, semanaAnterior, semanaISO } from '../logica/semana.js';
 
 /** La gráfica de un ejercicio muestra sus sesiones más recientes (la tabla, las mismas). */
@@ -20,13 +21,22 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
   }
 
   async function leerTodo() {
-    const [rutina, sesiones, series, inicio] = await Promise.all([
+    const [rutina, sesiones, series, inicio, planes] = await Promise.all([
       repos.rutina.todas(),
       repos.sesiones.todas(),
       repos.series.todas(),
       repos.estado.leer('inicioPrograma'),
+      repos.estado.leer('planes'),
     ]);
-    return { rutina, sesiones, series, inicio: inicio ?? null, puntos: puntosPorClave({ rutina, sesiones, series }) };
+    return {
+      rutina,
+      sesiones,
+      series,
+      inicio: inicio ?? null,
+      puntos: puntosPorClave({ rutina, sesiones, series }),
+      // Tanda 4: los renglones de la rutina que regía cada semana.
+      deSemana: (semana) => renglonesDeSemana(rutina, planes, semana),
+    };
   }
 
   /** Todo lo de la pantalla Avance, menos la gráfica de un ejercicio. */
@@ -38,24 +48,35 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
     const decisiones = Object.fromEntries(
       await Promise.all(semanas.map(async (s) => [s, (await repos.estado.leer(`semana:${s}`)) ?? DECISIONES_VACIAS])),
     );
-    const base = { rutina: d.rutina, sesiones: d.sesiones, series: d.series, puntos: d.puntos };
+    const base = (semana) => ({ semana, rutina: d.deSemana(semana), sesiones: d.sesiones, series: d.series, puntos: d.puntos });
     const ejercicios = ejerciciosConHistorial({ rutina: d.rutina, puntos: d.puntos });
-    // Estancados (tanda 3): solo ejercicios con regla de progresión.
+    // Estancados (tanda 3): solo ejercicios con regla de progresión y de la rutina de esta semana.
     const avisos = (await repos.estado.leer('avisosAceptados')) ?? [];
+    const deHoy = new Set(d.deSemana(t.semana).map((r) => r.clave));
     const estancados = ejercicios
-      .filter((e) => e.conRegla)
+      .filter((e) => e.conRegla && deHoy.has(e.clave))
       .map((e) => ({ clave: e.clave, nombre: e.nombre, ...estancamiento(d.puntos.get(e.clave), avisos.filter((a) => a.clave === e.clave)) }))
       .filter((e) => e.estancado);
     return {
       estancados,
       hoy: t,
       hayDatos: d.series.some((s) => s.completada),
-      semana: resumenSemana({ semana: t.semana, ...base }),
-      semanaPasada: d.inicio && d.inicio <= previa ? resumenSemana({ semana: previa, ...base }) : null,
-      constancia: constancia({ semanas, sesiones: d.sesiones, decisiones, hoy: t }),
+      semana: resumenSemana(base(t.semana)),
+      semanaPasada: d.inicio && d.inicio <= previa ? resumenSemana(base(previa)) : null,
+      constancia: constancia({
+        semanas,
+        sesiones: d.sesiones,
+        decisiones,
+        hoy: t,
+        diasPorSemana: Object.fromEntries(semanas.map((s) => [s, diasDelPlan(d.deSemana(s))])),
+      }),
       ejercicios,
       porDefecto: ejercicioPorDefecto(ejercicios),
-      grupos: seriesPorGrupo({ rutina: d.rutina, series: d.series, actual: t.semana, anterior: previa }),
+      grupos: seriesPorGrupo({
+        actual: { semana: t.semana, rutina: d.deSemana(t.semana) },
+        anterior: { semana: previa, rutina: d.deSemana(previa) },
+        series: d.series,
+      }),
     };
   }
 
@@ -66,7 +87,7 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
     const previa = semanaAnterior(t.semana);
     const d = await leerTodo();
     if (!d.inicio || d.inicio > previa) return null;
-    return resumenSemana({ semana: previa, rutina: d.rutina, sesiones: d.sesiones, series: d.series, puntos: d.puntos });
+    return resumenSemana({ semana: previa, rutina: d.deSemana(previa), sesiones: d.sesiones, series: d.series, puntos: d.puntos });
   }
 
   /** Gráfica, récords y avisos aceptados de un ejercicio (por clave). */
@@ -78,7 +99,8 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
       repos.estado.leer(`referencia:${clave}`),
       repos.estado.leer(`nota:${clave}`),
     ]);
-    const filas = rutina.filter((r) => r.clave === clave).sort(porDiaYOrden);
+    // El renglón de la rutina más nueva que trae el ejercicio da nombre y unidad.
+    const filas = rutina.filter((r) => r.clave === clave).sort((x, y) => numeroDePlan(y) - numeroDePlan(x) || porDiaYOrden(x, y));
     if (!filas.length) return null;
     const e = filas[0];
     const series = await repos.series.deRutinas(filas.map((r) => r.id));

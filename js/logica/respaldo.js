@@ -2,10 +2,15 @@
 // Importar REEMPLAZA todo; por eso aquí se valida a fondo antes de tocar nada.
 // También: el historial en TSV para Sheets y cuándo recordar el respaldo (tanda 2).
 
+import { numeroDePlan } from './plan.js';
 import { deTexto, diasEntre } from './semana.js';
 
 export const FORMATO = 'aaronfit-respaldo';
-export const VERSION_FORMATO = 1;
+// Versión 2 (tanda 4): el respaldo trae más de una rutina (renglones con `plan`).
+// La app v1.0 no sabe separarlas y rechaza la versión 2 pidiendo actualizar.
+// Mientras solo haya una rutina se sigue escribiendo la versión 1: así un
+// respaldo de la v2 todavía se puede importar en la v1.0.
+export const VERSION_FORMATO = 2;
 export const COLECCIONES = Object.freeze(['rutina', 'sesiones', 'series', 'medidas', 'estado']);
 
 export const nombreArchivo = (fechaTexto) => `aaronfit-respaldo-${fechaTexto}.json`;
@@ -35,7 +40,7 @@ const LLAVE = { rutina: 'id', sesiones: 'id', series: 'id', medidas: 'id', estad
 export function armarRespaldo(datos, { exportado }) {
   return {
     formato: FORMATO,
-    version: VERSION_FORMATO,
+    version: datos.rutina.some((r) => numeroDePlan(r) !== 1) ? 2 : 1,
     exportado,
     conteos: Object.fromEntries(COLECCIONES.map((c) => [c, datos[c].length])),
     datos: Object.fromEntries(COLECCIONES.map((c) => [c, datos[c]])),

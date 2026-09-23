@@ -38,12 +38,11 @@ export async function montar(raiz, _parametros, app) {
       raiz,
       h('h1', { class: 'titulo-seccion' }, 'Respaldo'),
       h(
-        'a',
-        { class: 'tarjeta tarjeta-resumen', href: '#/equipo' },
+        'section',
+        { class: 'tarjeta' },
         h('div', { class: 'etiqueta' }, 'Ajustes'),
-        h('p', {}, h('strong', {}, 'Tu equipo y la voz del descanso')),
-        h('p', { class: 'sub' }, 'Barra, discos y mancuernas para la calculadora de discos.'),
-        h('span', { class: 'fila-simple' }, 'Abrir ›'),
+        h('a', { class: 'fila-ajuste', href: '#/rutina' }, h('strong', {}, 'Cambiar de rutina ›'), h('span', {}, 'Arma un prompt para Claude o Gemini y programa la rutina nueva desde el lunes.')),
+        h('a', { class: 'fila-ajuste', href: '#/equipo' }, h('strong', {}, 'Tu equipo y la voz del descanso ›'), h('span', {}, 'Barra, discos y mancuernas para la calculadora de discos.')),
       ),
       h(
         'section',

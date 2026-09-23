@@ -19,6 +19,7 @@ import * as vistaAvance from './vistas/avance.js';
 import * as vistaDia from './vistas/dia.js';
 import * as vistaEjercicio from './vistas/ejercicio.js';
 import * as vistaEquipo from './vistas/equipo.js';
+import * as vistaRutina from './vistas/rutina.js';
 import * as vistaInicio from './vistas/inicio.js';
 import * as vistaMedidas from './vistas/medidas.js';
 import * as vistaRespaldo from './vistas/respaldo.js';
@@ -31,6 +32,7 @@ const RUTAS = [
   { patron: /^#\/medidas$/, vista: vistaMedidas, seccion: 'medidas' },
   { patron: /^#\/respaldo$/, vista: vistaRespaldo, seccion: 'respaldo' },
   { patron: /^#\/equipo$/, vista: vistaEquipo, seccion: 'respaldo' },
+  { patron: /^#\/rutina$/, vista: vistaRutina, seccion: 'respaldo' },
 ];
 
 errores.escucharErrores();

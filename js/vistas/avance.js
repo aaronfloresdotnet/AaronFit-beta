@@ -8,10 +8,10 @@ import * as formato from '../logica/formato.js';
 // El ejercicio que estabas viendo, mientras la app siga abierta.
 let elegido = null;
 
-const ICONO = { hecho: '✓', recorrido: '↻', saltado: '–', no_hecho: '✕', en_curso: '◐', pendiente: '!', hoy: '●', por_venir: '·', antes: '' };
+const ICONO = { hecho: '✓', recorrido: '↻', saltado: '–', no_hecho: '✕', en_curso: '◐', pendiente: '!', hoy: '●', por_venir: '·', antes: '', no_aplica: '' };
 const NOMBRE = {
   hecho: 'hecho', recorrido: 'hecho, recorrido', saltado: 'saltado', no_hecho: 'no hecho', en_curso: 'sin terminar',
-  pendiente: 'pendiente', hoy: 'hoy', por_venir: 'por venir', antes: 'antes de empezar',
+  pendiente: 'pendiente', hoy: 'hoy', por_venir: 'por venir', antes: 'antes de empezar', no_aplica: 'no tocaba en esa rutina',
 };
 const LEYENDA = [['hecho', 'hecho'], ['recorrido', 'recorrido'], ['saltado', 'saltado'], ['no_hecho', 'no hecho'], ['en_curso', 'sin terminar'], ['hoy', 'hoy']];
 
@@ -168,7 +168,7 @@ function tarjetaConstancia(c) {
       'table',
       { class: 'constancia' },
       h('caption', { class: 'solo-lector' }, 'Días de fuerza por semana, de lunes a viernes'),
-      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Semana'), ['L', 'M', 'M', 'J', 'V'].map((l) => h('th', { scope: 'col' }, l)), h('th', { scope: 'col' }, 'Hechos'))),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Semana'), c.columnas.map((dia) => h('th', { scope: 'col' }, formato.INICIALES_DIA[dia])), h('th', { scope: 'col' }, 'Hechos'))),
       h(
         'tbody',
         {},
@@ -211,7 +211,7 @@ function tarjetaEstancados(estancados) {
 }
 
 function tarjetaGrupos(grupos) {
-  const conSeries = grupos.filter((g) => g.actual || g.anterior);
+  const conSeries = grupos.filter((g) => g.actual.hechas || g.anterior.hechas);
   const sinSeries = grupos.length - conSeries.length;
   return h(
     'section',
@@ -226,7 +226,9 @@ function tarjetaGrupos(grupos) {
           h(
             'tbody',
             {},
-            conSeries.map((g) => h('tr', {}, h('th', { scope: 'row' }, g.grupo), h('td', {}, `${g.actual} de ${g.plan}`), h('td', {}, `${g.anterior} de ${g.plan}`))),
+            conSeries.map((g) =>
+              h('tr', {}, h('th', { scope: 'row' }, g.grupo), h('td', {}, `${g.actual.hechas} de ${g.actual.plan}`), h('td', {}, `${g.anterior.hechas} de ${g.anterior.plan}`)),
+            ),
           ),
         )
       : h('p', {}, 'Ninguna serie en estas dos semanas.'),

@@ -1359,7 +1359,8 @@ body.entrenando .toast {
   color: var(--aviso);
 }
 
-.celda-dia.antes {
+.celda-dia.antes,
+.celda-dia.no_aplica {
   border-color: transparent;
   background: transparent;
 }
@@ -1676,4 +1677,46 @@ body.entrenando .toast {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* ---------- Tanda 4: cambiar de rutina ---------- */
+
+.fila-ajuste {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 56px;
+  padding: 10px 0;
+  border-top: 1px solid var(--borde);
+  text-decoration: none;
+}
+
+.fila-ajuste strong {
+  color: var(--acento);
+}
+
+.fila-ajuste span {
+  font-size: 0.9rem;
+  color: var(--texto-2);
+}
+
+.lista-dias,
+.lista-cambios,
+.lista-errores {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lista-cambios li,
+.lista-errores li {
+  font-size: 0.95rem;
+}
+
+.entrada-nota.prompt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }

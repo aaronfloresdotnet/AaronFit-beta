@@ -22,6 +22,19 @@ export const rutina = {
       for (const renglon of renglones) almacen.put(renglon);
       tx.objectStore('estado').put({ llave: 'versionSemilla', valor: version });
     }),
+
+  /**
+   * Tanda 4: agrega los renglones de una rutina nueva y/o quita los de una que
+   * todavía no empieza, y guarda la lista de planes, en UNA transacción.
+   * `add` falla si un id ya existe: así nunca se pisa un renglón con historial.
+   */
+  cambiarPlanes: ({ agregar = [], quitar = [], planes }) =>
+    enTransaccion(['rutina', 'estado'], 'readwrite', (tx) => {
+      const almacen = tx.objectStore('rutina');
+      for (const id of quitar) almacen.delete(id);
+      for (const renglon of agregar) almacen.add(renglon);
+      tx.objectStore('estado').put({ llave: 'planes', valor: planes });
+    }),
 };
 
 export const sesiones = {
