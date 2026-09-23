@@ -2,8 +2,8 @@
 // las reglas de logica/avance.js. No escribe nada.
 
 import {
-  constancia, ejercicioPorDefecto, ejerciciosConHistorial, marcasDeAvisos, puntosDeEjercicio, puntosPorClave, records,
-  resumenSemana, SEMANAS_CONSTANCIA, seriesPorGrupo, ultimasSemanas,
+  constancia, ejercicioPorDefecto, ejerciciosConHistorial, estancamiento, marcasDeAvisos, puntosDeEjercicio, puntosPorClave,
+  records, resumenSemana, SEMANAS_CONSTANCIA, seriesPorGrupo, ultimasSemanas,
 } from '../logica/avance.js';
 import { DECISIONES_VACIAS } from '../logica/dias.js';
 import { aTexto, diaSemana, fechaLocal, semanaAnterior, semanaISO } from '../logica/semana.js';
@@ -40,7 +40,14 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
     );
     const base = { rutina: d.rutina, sesiones: d.sesiones, series: d.series, puntos: d.puntos };
     const ejercicios = ejerciciosConHistorial({ rutina: d.rutina, puntos: d.puntos });
+    // Estancados (tanda 3): solo ejercicios con regla de progresión.
+    const avisos = (await repos.estado.leer('avisosAceptados')) ?? [];
+    const estancados = ejercicios
+      .filter((e) => e.conRegla)
+      .map((e) => ({ clave: e.clave, nombre: e.nombre, ...estancamiento(d.puntos.get(e.clave), avisos.filter((a) => a.clave === e.clave)) }))
+      .filter((e) => e.estancado);
     return {
+      estancados,
       hoy: t,
       hayDatos: d.series.some((s) => s.completada),
       semana: resumenSemana({ semana: t.semana, ...base }),
@@ -64,11 +71,12 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
 
   /** Gráfica, récords y avisos aceptados de un ejercicio (por clave). */
   async function ejercicio(clave) {
-    const [rutina, sesiones, avisos, referencia] = await Promise.all([
+    const [rutina, sesiones, avisos, referencia, nota] = await Promise.all([
       repos.rutina.todas(),
       repos.sesiones.todas(),
       repos.estado.leer('avisosAceptados'),
       repos.estado.leer(`referencia:${clave}`),
+      repos.estado.leer(`nota:${clave}`),
     ]);
     const filas = rutina.filter((r) => r.clave === clave).sort(porDiaYOrden);
     if (!filas.length) return null;
@@ -95,6 +103,7 @@ export function crearServicioAvance({ repos, reloj = () => new Date() }) {
       records: recs,
       sesiones: todos.length,
       recortadas: mismos.length - puntos.length,
+      nota: nota ?? null,
     };
   }
 

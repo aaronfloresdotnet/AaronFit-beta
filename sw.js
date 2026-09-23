@@ -7,7 +7,7 @@
 
 // <archivos> — generado por herramientas/versionar-sw.js; no editar a mano.
 const PREFIJO = 'beta-aaronfit-';
-const VERSION = 'beta-aaronfit-1bd3ac50743c';
+const VERSION = 'beta-aaronfit-01342cc744a9';
 const ARCHIVOS = [
   './',
   './css/estilos.css',
@@ -33,6 +33,7 @@ const ARCHIVOS = [
   './js/logica/avance.js',
   './js/logica/cuerpo.js',
   './js/logica/dias.js',
+  './js/logica/equipo.js',
   './js/logica/escala.js',
   './js/logica/formato.js',
   './js/logica/frases.js',
@@ -49,6 +50,8 @@ const ARCHIVOS = [
   './js/plataforma/errores.js',
   './js/plataforma/pantalla.js',
   './js/plataforma/sonido.js',
+  './js/plataforma/voz.js',
+  './js/servicios/ajustes.js',
   './js/servicios/arranque.js',
   './js/servicios/avance.js',
   './js/servicios/contenedor.js',
@@ -58,6 +61,7 @@ const ARCHIVOS = [
   './js/vistas/avance.js',
   './js/vistas/dia.js',
   './js/vistas/ejercicio.js',
+  './js/vistas/equipo.js',
   './js/vistas/inicio.js',
   './js/vistas/medidas.js',
   './js/vistas/respaldo.js',

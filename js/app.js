@@ -13,10 +13,12 @@ import * as archivos from './plataforma/archivos.js';
 import * as errores from './plataforma/errores.js';
 import { crearPantallaDespierta } from './plataforma/pantalla.js';
 import { crearAlarma } from './plataforma/sonido.js';
+import { crearVoz } from './plataforma/voz.js';
 import { servicios } from './servicios/contenedor.js';
 import * as vistaAvance from './vistas/avance.js';
 import * as vistaDia from './vistas/dia.js';
 import * as vistaEjercicio from './vistas/ejercicio.js';
+import * as vistaEquipo from './vistas/equipo.js';
 import * as vistaInicio from './vistas/inicio.js';
 import * as vistaMedidas from './vistas/medidas.js';
 import * as vistaRespaldo from './vistas/respaldo.js';
@@ -28,6 +30,7 @@ const RUTAS = [
   { patron: /^#\/avance$/, vista: vistaAvance, seccion: 'avance' },
   { patron: /^#\/medidas$/, vista: vistaMedidas, seccion: 'medidas' },
   { patron: /^#\/respaldo$/, vista: vistaRespaldo, seccion: 'respaldo' },
+  { patron: /^#\/equipo$/, vista: vistaEquipo, seccion: 'respaldo' },
 ];
 
 errores.escucharErrores();
@@ -50,6 +53,9 @@ const app = {
   temporizadorSerie: crearTemporizadorSerie({ alarma }),
   pantalla: crearPantallaDespierta(),
   aviso: crearAvisos(),
+  voz: crearVoz(),
+  // Se leen al arrancar; la pantalla de equipo las cambia.
+  preferencias: { voz: false },
   // Valores de una serie recién deshecha, para volver a mostrarlos en su tarjeta.
   borrador: null,
   ir(ruta, { reemplazar = false } = {}) {
@@ -131,6 +137,11 @@ async function arrancar() {
       ),
     );
     return;
+  }
+  try {
+    app.preferencias = await servicios.ajustes.preferencias();
+  } catch (error) {
+    errores.registrarError(error, 'preferencias');
   }
   almacenamiento.pedirPersistencia();
   registrarServiceWorker({

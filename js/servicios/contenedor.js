@@ -4,6 +4,7 @@
 import * as repos from '../datos/repos.js';
 import { cargarVideos } from '../datos/videos.js';
 import { registrarError } from '../plataforma/errores.js';
+import { crearServicioAjustes } from './ajustes.js';
 import { prepararRutina } from './arranque.js';
 import { crearServicioAvance } from './avance.js';
 import { crearServicioEntrenamiento } from './entrenamiento.js';
@@ -18,6 +19,7 @@ const entrenamiento = crearServicioEntrenamiento({ repos, reloj, alFallar: regis
 export const servicios = {
   prepararRutina,
   entrenamiento,
+  ajustes: crearServicioAjustes({ repos }),
   avance: crearServicioAvance({ repos, reloj }),
   medidas: crearServicioMedidas({ repos, reloj }),
   respaldo: crearServicioRespaldo({

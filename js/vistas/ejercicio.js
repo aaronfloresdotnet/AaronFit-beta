@@ -6,6 +6,7 @@ import { preguntar } from '../componentes/dialogo.js';
 import { h, pintar } from '../componentes/dom.js';
 import { crearSpinner } from '../componentes/spinner.js';
 import { crearVideo } from '../componentes/video.js';
+import { cargar, pasoDe, UNIDAD_DE } from '../logica/equipo.js';
 import * as formato from '../logica/formato.js';
 import { aTexto, fechaLocal } from '../logica/semana.js';
 import { resultadoDeSerie } from '../logica/temporizador.js';
@@ -41,8 +42,113 @@ export async function montar(raiz, [idSesion, idRutina], app) {
 
   let abierta = borrador ? borrador.numeroSerie : primeraPendiente();
   let verVideo = datos.hoy.length === 0; // el video se ve al empezar; luego se pliega
+  // La nota se pinta en su propio lugar: editarla no reinicia la serie abierta.
+  const zonaNota = h('div', { class: 'zona-nota' });
+  let editandoNota = false;
 
+  pintarNota();
   render();
+
+  /** Llevas 3 semanas o más sin subir (tanda 3): la app avisa; tú decides. */
+  function bloqueEstancado() {
+    const s = datos.estancado;
+    if (!s) return null;
+    return h(
+      'p',
+      { class: 'estancado' },
+      h('strong', {}, `Llevas ${s.semanas} semanas sin subir`),
+      ` (desde el ${formato.fechaCorta(s.desde)}). Puedes bajar el peso una semana y volver a subir, o cambiar el ejercicio. Tú decides.`,
+    );
+  }
+
+  function pintarNota() {
+    if (editandoNota) {
+      const entrada = h('textarea', { class: 'entrada-nota', rows: '2', placeholder: 'P. ej. molestia en rodilla, asiento en 4' }, datos.nota?.texto ?? '');
+      pintar(
+        zonaNota,
+        entrada,
+        h(
+          'div',
+          { class: 'botones-fila' },
+          h('button', { type: 'button', class: 'boton', onclick: () => { editandoNota = false; pintarNota(); } }, 'Cancelar'),
+          h('button', { type: 'button', class: 'boton primario', onclick: () => guardarNota(entrada.value) }, 'Guardar nota'),
+        ),
+      );
+      entrada.focus();
+      return;
+    }
+    const editar = () => {
+      editandoNota = true;
+      pintarNota();
+    };
+    pintar(
+      zonaNota,
+      datos.nota
+        ? h(
+            'button',
+            { type: 'button', class: 'nota-ejercicio', onclick: editar, 'aria-label': `Tu nota: ${datos.nota.texto}. Toca para editarla` },
+            h('span', { class: 'nota-icono', 'aria-hidden': 'true' }, '✎'),
+            h('span', {}, datos.nota.texto, h('small', {}, ` · ${formato.fechaCorta(datos.nota.fecha)}`)),
+          )
+        : h('button', { type: 'button', class: 'enlace', onclick: editar }, '+ Agregar una nota a este ejercicio'),
+    );
+  }
+
+  async function guardarNota(texto) {
+    try {
+      datos.nota = await servicio.guardarNota(e.clave, texto);
+      editandoNota = false;
+      pintarNota();
+      app.aviso(datos.nota ? 'Nota guardada' : 'Nota borrada');
+    } catch (error) {
+      app.error(error);
+    }
+  }
+
+  /** Calentamiento sugerido: solo se muestra, no se anota. */
+  function bloqueCalentamiento() {
+    if (!datos.calentamiento?.length) return null;
+    return h(
+      'section',
+      { class: 'calentamiento' },
+      h('div', { class: 'etiqueta' }, 'Calentamiento sugerido · no se anota'),
+      h(
+        'ol',
+        {},
+        datos.calentamiento.map((s) =>
+          h('li', {}, h('strong', {}, `${formato.numero(s.peso)} kg × ${s.reps}`), s.discos.length ? ` · por lado ${s.discos.map(formato.numero).join(' + ')}` : ' · barra sola'),
+        ),
+      ),
+    );
+  }
+
+  /** Calculadora de discos (tanda 3): qué poner para `peso` en este ejercicio. */
+  function textoCarga(peso, unidadPeso) {
+    const implemento = datos.implementoCarga;
+    if (!implemento || unidadPeso !== UNIDAD_DE[implemento]) return null;
+    const r = cargar({ implemento, peso, equipo: datos.equipo });
+    const discos = (lista) => lista.map(formato.numero).join(' + ');
+    if (r.estado === 'falta-mango') return 'Para calcular los discos falta el peso del mango (Respaldo › Tu equipo).';
+    if (r.estado === 'imposible') return r.minimo === undefined ? null : `Es menos de lo que pesa sin discos (${formato.numero(r.minimo)} ${unidadPeso}).`;
+    if (r.estado === 'aproximado') return `No sale exacto con tus discos: ${r.cercanos.map((c) => `${formato.numero(c)} ${unidadPeso}`).join(' o ')}.`;
+    if (implemento === 'barra') return r.discos.length ? `Por lado: ${discos(r.discos)}` : 'Barra sola';
+    if (implemento === 'landmine') return `En la punta: ${discos(r.discos)}`;
+    if (implemento === 'polea') return `Discos: ${discos(r.discos)}`;
+    const cual = implemento === 'mancuernas' ? 'Cada mancuerna' : 'La mancuerna';
+    return `${cual}: mango + por lado ${r.discos.length ? discos(r.discos) : 'nada'}${r.sobreTope ? ' (pasa tu tope)' : ''}`;
+  }
+
+  /** El paso del + y − del peso: el salto más chico que se puede cargar con tu equipo. */
+  function pasoPeso(unidadPeso) {
+    const implemento = datos.implementoCarga;
+    const conEquipo = implemento && unidadPeso === UNIDAD_DE[implemento] ? pasoDe(implemento, datos.equipo) : null;
+    return conEquipo ?? PASO_PESO[unidadPeso] ?? 1;
+  }
+
+  /** Dice algo en voz alta si la voz está encendida. */
+  function decir(texto) {
+    if (app.preferencias.voz && texto) app.voz.hablar(texto);
+  }
 
   function primeraPendiente() {
     for (let k = 1; k <= e.series; k++) if (!datos.hoy.some((s) => s.numeroSerie === k)) return k;
@@ -76,7 +182,10 @@ export async function montar(raiz, [idSesion, idRutina], app) {
         e.progresionTexto,
         /semana/i.test(e.progresionTexto) ? h('strong', {}, ` Vas en la semana ${datos.semanaPrograma} del programa.`) : null,
       ),
+      bloqueEstancado(),
+      zonaNota,
       datos.anterior ? lineaAnterior() : null,
+      bloqueCalentamiento(),
       h('ol', { class: 'series' }, Array.from({ length: e.series }, (_, i) => tarjetaSerie(i + 1))),
       abierta === null ? pie() : null,
     );
@@ -184,14 +293,21 @@ export async function montar(raiz, [idSesion, idRutina], app) {
     const sufijo = SUFIJO_VALOR[e.tipoMedida];
     const porLadoTexto = e.porLado ? ` ${e.repsTexto.match(/por \w+$/)?.[0] ?? 'por lado'}` : '';
 
+    const lineaCarga = h('p', { class: 'carga', 'aria-live': 'polite' });
+    const pintarCarga = (valor) => {
+      lineaCarga.textContent = textoCarga(valor, inicial.unidadPeso) ?? '';
+      lineaCarga.hidden = !lineaCarga.textContent;
+    };
     const peso = conPeso
       ? crearSpinner({
           etiqueta: 'Peso',
           valor: inicial.peso ?? 0,
-          paso: PASO_PESO[inicial.unidadPeso] ?? 1,
+          paso: pasoPeso(inicial.unidadPeso),
           sufijo: `${inicial.unidadPeso}${inicial.pesoPorLado ? ' c/u' : ''}${e.pesoNota === '+ barra' ? ' + barra' : ''}`,
+          alCambiar: pintarCarga,
         })
       : null;
+    if (peso) pintarCarga(peso.valor);
     const unico = crearSpinner({ etiqueta: `${ETIQUETA_VALOR[e.tipoMedida]}${porLadoTexto}`, valor: aPantalla(inicial.valor), paso: pasoValor, sufijo });
     const izq = crearSpinner({ etiqueta: 'Izquierdo', valor: aPantalla(inicial.lados?.izq ?? inicial.valor), paso: pasoValor, sufijo });
     const der = crearSpinner({ etiqueta: 'Derecho', valor: aPantalla(inicial.lados?.der ?? inicial.valor), paso: pasoValor, sufijo });
@@ -250,6 +366,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       { class: 'serie-form' },
       h('div', { class: 'serie-form-titulo' }, `Serie ${k} de ${e.series}`, corrigiendo ? h('span', { class: 'etiqueta' }, 'corrigiendo') : null),
       peso?.elemento,
+      peso ? lineaCarga : null,
       cronometrar,
       zonaValor,
       alternar,
@@ -297,6 +414,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       app.pantalla.desactivar();
       app.ir(`#/dia/${sesionId}`, { reemplazar: true });
       app.aviso(conExtra('Entrenamiento terminado'), 6000, deshacer);
+      decir('Entrenamiento terminado.');
       return;
     }
     datos = await servicio.datosEjercicio(sesionId, rutinaId);
@@ -311,6 +429,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       app.cronometro.iniciar(resultado.descansoSeg, { texto: destino ? `Sigue: ${destino.nombre}` : '', frases, deshacer: deshacerUltima });
       app.ir(destino ? `#/ejercicio/${sesionId}/${destino.id}` : `#/dia/${sesionId}`, { reemplazar: true });
       avisar();
+      if (!sinDescanso && destino) decir(`Sigue: ${destino.nombre}.`);
       return;
     }
     abierta = siguienteSerie;
@@ -323,6 +442,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       deshacer: deshacerUltima,
     });
     avisar();
+    if (!sinDescanso) decir(`Sigue: serie ${siguienteSerie}, ${formato.serieHablada(precarga, e.tipoMedida)}.`);
   }
 
   /** '★ ¡Nuevo récord! 57.5 kg' (o 1RM estimado, o la mejor serie sin peso). */
@@ -349,17 +469,27 @@ export async function montar(raiz, [idSesion, idRutina], app) {
 
   async function ofrecerProgresion(propuesta) {
     let control = null;
+    let bajoControl = null; // lo que va debajo del control (la calculadora de discos)
     let botones;
     const cuerpo = [h('blockquote', { class: 'cita' }, e.progresionTexto)];
     const ahoraNo = { etiqueta: 'Ahora no', valor: null };
     if (propuesta.tipo === 'peso') {
+      // La calculadora dice si el peso propuesto sale con tus discos.
+      const carga = h('p', { class: 'carga', 'aria-live': 'polite' });
+      const pintarCarga = (valor) => {
+        carga.textContent = textoCarga(valor, propuesta.unidadPeso) ?? '';
+        carga.hidden = !carga.textContent;
+      };
       control = crearSpinner({
         etiqueta: 'Peso para la próxima vez',
         valor: propuesta.peso,
-        paso: PASO_PESO[propuesta.unidadPeso] ?? 1,
+        paso: pasoPeso(propuesta.unidadPeso),
         sufijo: `${propuesta.unidadPeso}${datos.precarga[0]?.pesoPorLado ? ' c/u' : ''}`,
+        alCambiar: pintarCarga,
       });
+      pintarCarga(propuesta.peso);
       if (propuesta.libre) cuerpo.push(h('p', { class: 'nota' }, 'La regla no dice cuánto: ajusta al disco más chico que acepte tu polea.'));
+      bajoControl = carga;
       botones = [ahoraNo, { etiqueta: 'Sí, súbele', valor: () => ({ ...propuesta, peso: control.valor }), clase: 'primario' }];
     } else if (propuesta.tipo === 'tiempo') {
       control = crearSpinner({ etiqueta: 'Tiempo para la próxima vez', valor: propuesta.valor, paso: 5, sufijo: 's' });
@@ -373,6 +503,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       botones = [ahoraNo, ...propuesta.opciones.map((o) => ({ etiqueta: o.etiqueta, valor: o, clase: 'primario' }))];
     }
     if (control) cuerpo.push(control.elemento);
+    if (bajoControl) cuerpo.push(bajoControl);
     const elegida = await preguntar({ titulo: '¡Ya te toca subirle!', cuerpo, botones, clase: 'dialogo-progresion' });
     if (!elegida) return false;
     await servicio.aceptarProgresion({ sesionId, rutinaId, propuesta: elegida });

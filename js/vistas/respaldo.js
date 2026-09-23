@@ -38,6 +38,14 @@ export async function montar(raiz, _parametros, app) {
       raiz,
       h('h1', { class: 'titulo-seccion' }, 'Respaldo'),
       h(
+        'a',
+        { class: 'tarjeta tarjeta-resumen', href: '#/equipo' },
+        h('div', { class: 'etiqueta' }, 'Ajustes'),
+        h('p', {}, h('strong', {}, 'Tu equipo y la voz del descanso')),
+        h('p', { class: 'sub' }, 'Barra, discos y mancuernas para la calculadora de discos.'),
+        h('span', { class: 'fila-simple' }, 'Abrir ›'),
+      ),
+      h(
         'section',
         { class: 'tarjeta' },
         h('p', {}, 'Tus datos viven solo en este teléfono. Si borras los datos del navegador o desinstalas la app, se pierden. Exporta seguido y guarda el archivo donde quieras.'),

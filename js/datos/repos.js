@@ -89,6 +89,7 @@ export const estado = {
     return registro ? registro.valor : undefined;
   },
   escribir: (llave, valor) => escribir('estado', (s) => s.put({ llave, valor })),
+  borrar: (llave) => escribir('estado', (s) => s.delete(llave)),
 
   /** Varios pares [llave, valor] en una sola transacción. */
   escribirVarias: (pares) =>

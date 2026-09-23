@@ -2,8 +2,9 @@
 // Orquesta los repositorios (datos) y las reglas (lógica pura). No toca el DOM.
 // Recibe sus dependencias al crearse, para poder probarlo sin IndexedDB.
 
-import { recordNuevo } from '../logica/avance.js';
+import { estancamiento, puntosDeEjercicio, recordNuevo } from '../logica/avance.js';
 import { DECISIONES_VACIAS, planSemana, recorrer, saltar } from '../logica/dias.js';
+import { calentamiento, implementoDe, normalizarEquipo } from '../logica/equipo.js';
 import { frasesDeAvance, mezclarFrases } from '../logica/frases.js';
 import { evaluarProgresion, referenciaDeAceptar } from '../logica/progresion.js';
 import { porNumero, precargar, seriesDeUltimaSesion } from '../logica/referencia.js';
@@ -175,11 +176,15 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     const ejercicio = todas.find((r) => r.id === rutinaId);
     if (!sesion || !ejercicio || ejercicio.diaSemana !== sesion.diaSemanaPlan) return null;
     const delDia = todas.filter((r) => r.diaSemana === sesion.diaSemanaPlan).sort(porOrden);
-    const [seriesClave, referencia, implemento, seriesSesion] = await Promise.all([
+    const [seriesClave, referencia, implemento, seriesSesion, nota, equipoGuardado, avisos, sesiones] = await Promise.all([
       repos.series.deRutinas(await idsDeClave(ejercicio.clave)),
       repos.estado.leer(`referencia:${ejercicio.clave}`),
       repos.estado.leer(`implemento:${ejercicio.clave}`),
       repos.series.deSesion(sesionId),
+      repos.estado.leer(`nota:${ejercicio.clave}`),
+      repos.estado.leer('equipo'),
+      repos.estado.leer('avisosAceptados'),
+      repos.sesiones.todas(),
     ]);
     const hoy = seriesClave
       .filter((s) => s.sesionId === sesionId && s.rutinaId === rutinaId)
@@ -189,12 +194,30 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     const posicion = delDia.findIndex((r) => r.id === rutinaId);
     const pendiente = (r) => r.id !== rutinaId && !avance(r, seriesSesion).terminado;
     const siguientePendiente = delDia.slice(posicion + 1).find(pendiente) ?? delDia.find(pendiente) ?? null;
+    const precarga = precargar({ ejercicio, historial, hoy, referencia: referencia ?? null });
+
+    // Tanda 3: equipo, calentamiento (solo el primer ejercicio con barra del día y
+    // antes de su primera serie) y estancamiento (no en ejercicios de regla manual).
+    const equipo = normalizarEquipo(equipoGuardado);
+    const primeraBarra = delDia.find((r) => implementoDe(r) === 'barra')?.id === rutinaId;
+    const conRegla = (ejercicio.progresionRegla?.tipo ?? 'manual') !== 'manual';
+    const estado = conRegla
+      ? estancamiento(
+          puntosDeEjercicio({ series: seriesClave, sesiones, tipoMedida: ejercicio.tipoMedida }),
+          (avisos ?? []).filter((a) => a.clave === ejercicio.clave),
+        )
+      : null;
 
     return {
       sesion,
       ejercicio,
       hoy,
-      precarga: precargar({ ejercicio, historial, hoy, referencia: referencia ?? null }),
+      precarga,
+      equipo,
+      implementoCarga: implementoDe(ejercicio),
+      calentamiento: primeraBarra && !hoy.length ? calentamiento({ peso: precarga[0]?.peso, equipo }) : [],
+      nota: nota ?? null,
+      estancado: estado?.estancado ? estado : null,
       anterior: ultima.length
         ? { hora: ultima[0].hora, series: [...porNumero(ultima, ejercicio.tipoMedida).values()].sort((a, b) => a.numeroSerie - b.numeroSerie) }
         : null,
@@ -353,6 +376,18 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     };
   }
 
+  /** Nota de un ejercicio (p. ej. «molestia en rodilla»). Vacía la borra. */
+  async function guardarNota(clave, texto) {
+    const limpio = typeof texto === 'string' ? texto.trim() : '';
+    if (!limpio) {
+      await repos.estado.borrar(`nota:${clave}`);
+      return null;
+    }
+    const nota = { texto: limpio, fecha: ahora().fecha };
+    await repos.estado.escribir(`nota:${clave}`, nota);
+    return nota;
+  }
+
   /** Frases para el descanso: tu avance por ejercicio y tu constancia, mezclados con las listas. */
   async function frasesDescanso(azar) {
     const t = ahora();
@@ -428,6 +463,7 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date(), al
     guardarSerie,
     aceptarProgresion,
     deshacerUltimaSerie,
+    guardarNota,
     frasesDescanso,
     terminarSesion,
     /** Tras importar un respaldo la rutina puede cambiar. */

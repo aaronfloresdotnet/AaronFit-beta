@@ -43,6 +43,7 @@ export async function montar(raiz, _parametros, app) {
     tarjetaSemana(d.semana, 'Esta semana'),
     d.semanaPasada ? tarjetaSemana(d.semanaPasada, 'La semana pasada') : null,
     tarjetaConstancia(d.constancia),
+    tarjetaEstancados(d.estancados),
     tarjetaEjercicio(),
     tarjetaGrupos(d.grupos),
   );
@@ -93,6 +94,7 @@ export async function montar(raiz, _parametros, app) {
     });
     pintar(
       panel,
+      datos.nota ? h('p', { class: 'nota-ejercicio' }, h('span', { class: 'nota-icono', 'aria-hidden': 'true' }, '✎'), h('span', {}, datos.nota.texto)) : null,
       bloqueRecords(datos, texto, enPantalla),
       h(
         'p',
@@ -189,6 +191,22 @@ function tarjetaConstancia(c) {
       ),
     ),
     h('p', { class: 'leyenda' }, LEYENDA.map(([estado, texto]) => `${ICONO[estado]} ${texto}`).join(' · ')),
+  );
+}
+
+/** Tanda 3: ejercicios con 3 semanas o más sin subir. La app avisa; tú decides. */
+function tarjetaEstancados(estancados) {
+  if (!estancados.length) return null;
+  return h(
+    'section',
+    { class: 'tarjeta tarjeta-pregunta' },
+    h('div', { class: 'etiqueta aviso' }, 'Sin subir en 3 semanas o más'),
+    h(
+      'ul',
+      { class: 'lista-subio' },
+      estancados.map((e) => h('li', {}, `${e.nombre}: ${e.semanas} semanas (desde el ${formato.fechaCorta(e.desde)})`)),
+    ),
+    h('p', { class: 'nota' }, 'Opciones: bajar el peso una semana y volver a subir, o cambiar el ejercicio. «Sin subir» es sin récord de peso ni de 1RM estimado (o de tu mejor serie, sin peso) y sin aceptar un aviso.'),
   );
 }
 

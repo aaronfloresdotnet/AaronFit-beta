@@ -48,6 +48,22 @@ export function serie({ peso: p, unidadPeso, pesoPorLado, valor: v }, tipoMedida
   return tipoMedida === 'reps' ? `${textoPeso} × ${textoValor}` : `${textoPeso} · ${textoValor}`;
 }
 
+/**
+ * Una serie para decirla en voz alta: '55 kilos por 8', '35 libras cada una por 12',
+ * '40 segundos', '10 repeticiones', '2 minutos'.
+ */
+export function serieHablada({ peso: p, unidadPeso, pesoPorLado, valor: v }, tipoMedida) {
+  const unidad = { kg: 'kilos', lb: 'libras' }[unidadPeso];
+  const conPeso = unidad && p !== null && p !== undefined ? `${numero(p)} ${unidad}${pesoPorLado ? ' cada una' : ''}` : '';
+  if (v === null || v === undefined) return conPeso;
+  let cantidad;
+  if (tipoMedida === 'segundos') cantidad = `${numero(v)} segundos`;
+  else if (tipoMedida === 'minutos') cantidad = `${numero(v / 60)} minutos`;
+  else if (tipoMedida === 'metros') cantidad = `${numero(v)} metros`;
+  else cantidad = conPeso ? `por ${numero(v)}` : `${numero(v)} repeticiones`;
+  return [conPeso, cantidad].filter(Boolean).join(tipoMedida === 'reps' ? ' ' : ', ');
+}
+
 /** 150 → '2:30'. */
 export function reloj(segundos) {
   const s = Math.max(0, Math.ceil(segundos));

@@ -310,3 +310,38 @@ export function marcasDeAvisos(puntos, avisos) {
   }
   return marcas;
 }
+
+/** Semanas sin subir a partir de las cuales se avisa de estancamiento. */
+export const SEMANAS_SIN_SUBIR = 3;
+
+/**
+ * ¿Estancado? Cuenta las sesiones, y sus semanas, DESPUÉS del último avance:
+ * el último récord (con peso: peso o 1RM estimado; sin peso: la mejor serie)
+ * o el último aviso aceptado, lo que haya sido después. Solo en la unidad de
+ * la sesión más reciente. Estancado = 3 semanas o más sin avanzar.
+ * @param {Array<object>} puntos  de un ejercicio (puntosDeEjercicio), en orden
+ * @param {Array<{hora:string}>} [avisos]  avisos aceptados de ese ejercicio
+ * @returns {{semanas:number, sesiones:number, desde:string, estancado:boolean}|null}
+ */
+export function estancamiento(puntos, avisos = []) {
+  if (!puntos.length) return null;
+  const unidad = puntos.at(-1).unidad;
+  const mismos = puntos.filter((p) => p.unidad === unidad);
+  const campos = unidad === 'corporal' ? ['valor'] : ['peso', 'e1rm'];
+  const maximos = {};
+  let corte = 0;
+  mismos.forEach((p, i) => {
+    let avanzo = false;
+    for (const campo of campos) {
+      if (!esNumero(p[campo])) continue;
+      if (maximos[campo] !== undefined && p[campo] > maximos[campo]) avanzo = true;
+      if (maximos[campo] === undefined || p[campo] > maximos[campo]) maximos[campo] = p[campo];
+    }
+    if (avanzo) corte = i;
+  });
+  const ultimoAviso = avisos.map((a) => a.hora).sort().at(-1);
+  if (ultimoAviso) corte = Math.max(corte, mismos.findLastIndex((p) => p.inicio <= ultimoAviso));
+  const despues = mismos.slice(corte + 1);
+  const semanas = new Set(despues.map((p) => p.semanaISO)).size;
+  return { semanas, sesiones: despues.length, desde: mismos[corte].fecha, estancado: semanas >= SEMANAS_SIN_SUBIR };
+}
