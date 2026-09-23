@@ -1,9 +1,10 @@
 // Capa de aplicación: tu equipo (calculadora de discos) y tus preferencias
-// (voz en el descanso). Tanda 3. Todo va en `estado`; no cambia la base.
+// del descanso (voz y guía de respiración). Todo va en `estado`; no cambia la base.
 
 import { normalizarEquipo } from '../logica/equipo.js';
 
-export const PREFERENCIAS_INICIALES = Object.freeze({ voz: false });
+// La voz empieza apagada (tanda 3); la guía de respiración, encendida: la pediste (2026-09-23).
+export const PREFERENCIAS_INICIALES = Object.freeze({ voz: false, respiracion: true });
 
 export function crearServicioAjustes({ repos }) {
   /** Tu equipo guardado, completado con el inicial. */

@@ -870,6 +870,75 @@ body.entrenando .principal {
   }
 }
 
+/* Guía de respiración: sigue al anillo (10 s: 4 s crece = inhala, 6 s baja = exhala). */
+.crono-respira {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 21%;
+  height: 1.5em;
+  display: none;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.crono.con-respiracion .crono-respira {
+  display: block;
+}
+
+.crono.sonando .crono-respira {
+  display: none;
+}
+
+.crono-respira span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.crono-respira .inhala {
+  animation: inhala 10s ease-in-out infinite;
+}
+
+.crono-respira .exhala {
+  animation: exhala 10s ease-in-out infinite;
+}
+
+.crono-respira .quieto {
+  display: none;
+}
+
+@keyframes inhala {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  34% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes exhala {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  46%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .crono-siguiente {
   font-size: 1.25rem;
   font-weight: 700;
@@ -949,6 +1018,17 @@ body.entrenando .principal {
   .anillo,
   .crono-frase.entra {
     animation: none;
+    opacity: 1;
+  }
+
+  /* El anillo no se mueve: en lugar de Inhala/Exhala, una indicación fija. */
+  .crono-respira .inhala,
+  .crono-respira .exhala {
+    display: none;
+  }
+
+  .crono-respira .quieto {
+    display: block;
     opacity: 1;
   }
 }
@@ -1719,4 +1799,57 @@ body.entrenando .toast {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.8rem;
   line-height: 1.35;
+}
+
+/* Nombres que no tienes: los parecidos a uno tuyo esperan tu respuesta. */
+.lista-nombres {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nombre-nuevo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--superficie-2);
+}
+
+.nombre-nuevo.pendiente {
+  border-color: var(--aviso);
+  background: var(--aviso-fondo);
+}
+
+.nombre-nuevo small {
+  color: var(--texto-2);
+}
+
+.nombre-nuevo .entrada-select {
+  background: var(--superficie);
+}
+
+.opciones-nombre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.boton.opcion-nombre {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 0.95rem;
+  background: var(--superficie);
+}
+
+.boton.opcion-nombre.elegida {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: var(--acento-texto);
 }

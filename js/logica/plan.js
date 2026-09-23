@@ -5,7 +5,8 @@
 // ids: plan 1 = diaSemana * 100 + orden (los de siempre, sin campo `plan`);
 // plan N ≥ 2 = N * 1000 + diaSemana * 100 + orden, con `plan: N`. Los renglones
 // de planes viejos NUNCA se borran: las series apuntan a ellos. El historial de
-// un ejercicio sigue entre planes por su clave (el nombre, sin acentos).
+// un ejercicio sigue entre planes por su clave, que se hereda por nombre (sin
+// mayúsculas ni acentos): ver asignarClaves.
 
 import {
   nulo, parsearDescanso, parsearEntero, parsearPeso, parsearRegla, parsearReps, parsearRir, quitarAcentos, reglaATexto, slug,
@@ -100,18 +101,44 @@ function convertir(fila, plan) {
 }
 
 /**
- * Un mismo ejercicio comparte historial en toda la semana (misma clave) solo si
- * su prescripción es idéntica; si cambia entre días (p. ej. elevación lateral
- * lunes y viernes), cada día lleva su propia clave.
+ * La clave junta el historial de un ejercicio. Se hereda por nombre, para que
+ * una rutina nueva no lo pierda (Aarón, 2026-09-23):
+ * - si el ejercicio ya tenía UNA clave, todos sus renglones la heredan, aunque
+ *   ahora su prescripción cambie entre días;
+ * - si tenía una por día (tu elevación lateral de lunes y viernes), cada día
+ *   hereda la suya y un día nuevo lleva la propia;
+ * - si es nuevo, comparte clave en toda la semana solo si su prescripción es
+ *   idéntica; si cambia entre días, cada día lleva la suya.
+ * @param {object[]} renglones  los del plan nuevo
+ * @param {object[]} previos  los de tus rutinas anteriores
  */
-function asignarClaves(renglones) {
+function asignarClaves(renglones, previos) {
   const prescripcion = (r) => {
     const { id, dia, diaSemana, orden, clave, ...resto } = r;
     return JSON.stringify(resto);
   };
+  const deDia = (nombre, r) => `${nombre}-${slug(r.dia.split(' - ')[0])}`;
+  // Lo que ya había de cada nombre: sus claves y la de cada día en la rutina más reciente.
+  const antes = new Map();
+  for (const r of previos) {
+    const nombre = slug(r.ejercicio);
+    const info = antes.get(nombre) ?? { claves: new Set(), dias: new Map() };
+    info.claves.add(r.clave);
+    const visto = info.dias.get(r.diaSemana);
+    if (!visto || numeroDePlan(r) > visto.plan) info.dias.set(r.diaSemana, { plan: numeroDePlan(r), clave: r.clave });
+    antes.set(nombre, info);
+  }
   for (const [nombre, grupo] of Map.groupBy(renglones, (r) => slug(r.ejercicio))) {
-    const distintas = new Set(grupo.map(prescripcion));
-    for (const r of grupo) r.clave = distintas.size === 1 ? nombre : `${nombre}-${slug(r.dia.split(' - ')[0])}`;
+    const previo = antes.get(nombre);
+    if (previo?.claves.size === 1) {
+      const [clave] = previo.claves;
+      for (const r of grupo) r.clave = clave;
+    } else if (previo) {
+      for (const r of grupo) r.clave = previo.dias.get(r.diaSemana)?.clave ?? deDia(nombre, r);
+    } else {
+      const distintas = new Set(grupo.map(prescripcion));
+      for (const r of grupo) r.clave = distintas.size === 1 ? nombre : deDia(nombre, r);
+    }
   }
 }
 
@@ -120,10 +147,11 @@ function asignarClaves(renglones) {
  * devuelve renglones (nada a medias). Una liga que no está en `ligasValidas`
  * no es error: el ejercicio queda sin video y se avisa.
  * @param {object[]} filas  de leerTSV
- * @param {{plan?:number, ligasValidas?:Set<string>|null}} [opciones]
+ * @param {{plan?:number, ligasValidas?:Set<string>|null, previos?:object[]}} [opciones]
+ *   previos: los renglones de tus rutinas anteriores, de donde se heredan las claves
  * @returns {{renglones:object[], errores:string[], avisos:string[]}}
  */
-export function renglonesDePlan(filas, { plan = 1, ligasValidas = null } = {}) {
+export function renglonesDePlan(filas, { plan = 1, ligasValidas = null, previos = [] } = {}) {
   const renglones = [];
   const errores = [];
   const avisos = [];
@@ -147,7 +175,7 @@ export function renglonesDePlan(filas, { plan = 1, ligasValidas = null } = {}) {
   }
   if (!errores.length && !renglones.some((r) => !esDiaDeCaminata(r.dia))) errores.push('La rutina no trae ningún día de fuerza.');
   if (errores.length) return { renglones: [], errores, avisos };
-  asignarClaves(renglones);
+  asignarClaves(renglones, previos);
   return { renglones, errores, avisos };
 }
 
@@ -196,34 +224,55 @@ const CAMPOS = [
   ['equipo', 'equipo'], ['accesorioPolea', 'accesorio'], ['progresionTexto', 'progresión'],
 ];
 
+/** Lo que cambia de un renglón a otro, en palabras. */
+function cambiosEntre(a, b) {
+  const cambios = [];
+  for (const [campo, etiqueta] of CAMPOS) {
+    const x = a[campo] ?? '-';
+    const y = b[campo] ?? '-';
+    if (x !== y) cambios.push(`${etiqueta}: ${x} → ${y}`);
+  }
+  if (reglaATexto(a.progresionRegla) !== reglaATexto(b.progresionRegla)) cambios.push('regla de progresión');
+  return cambios;
+}
+
 /**
  * Qué cambia entre el plan actual y uno nuevo, por ejercicio (clave): los
- * nuevos empiezan sin historial; los que se quedan conservan el suyo.
- * @returns {{nuevos:string[], salen:string[], cambian:Array<{ejercicio:string, cambios:string[]}>, iguales:string[]}}
+ * nuevos empiezan sin historial; los que se quedan y los que vuelven de una
+ * rutina anterior conservan el suyo. Cada día se compara con el mismo día de
+ * antes; un cambio que no es de todos los días dice de cuáles.
+ * @param {object[]} actual  los renglones del plan que rige
+ * @param {object[]} nuevo
+ * @param {object[]} [anteriores]  los de todas tus rutinas anteriores (para saber qué vuelve)
+ * @returns {{nuevos:string[], vuelven:string[], salen:string[], cambian:Array<{ejercicio:string, cambios:string[]}>, iguales:string[]}}
  */
-export function diferencias(actual, nuevo) {
+export function diferencias(actual, nuevo, anteriores = []) {
   const porClave = (lista) => Map.groupBy([...lista].sort((a, b) => a.diaSemana - b.diaSemana || a.orden - b.orden), (r) => r.clave);
   const antes = porClave(actual);
   const despues = porClave(nuevo);
-  const dias = (grupo) => grupo.map((r) => r.dia.split(' - ')[0]).join(', ');
-  const resultado = { nuevos: [], salen: [], cambian: [], iguales: [] };
+  const conHistorial = new Set(anteriores.map((r) => r.clave));
+  const diaDe = (r) => r.dia.split(' - ')[0];
+  const dias = (grupo) => grupo.map(diaDe).join(', ');
+  // «Elevación lateral (viernes)» cuando el ejercicio lleva una clave por día.
+  const nombre = (grupo) => (grupo[0].clave === slug(grupo[0].ejercicio) ? grupo[0].ejercicio : `${grupo[0].ejercicio} (${dias(grupo).toLowerCase()})`);
+  const resultado = { nuevos: [], vuelven: [], salen: [], cambian: [], iguales: [] };
   for (const [clave, grupo] of despues) {
     const previo = antes.get(clave);
     if (!previo) {
-      resultado.nuevos.push(grupo[0].ejercicio);
+      (conHistorial.has(clave) ? resultado.vuelven : resultado.nuevos).push(nombre(grupo));
       continue;
     }
     const cambios = [];
     if (dias(previo) !== dias(grupo)) cambios.push(`días: ${dias(previo)} → ${dias(grupo)}`);
-    for (const [campo, etiqueta] of CAMPOS) {
-      const a = previo[0][campo] ?? '-';
-      const b = grupo[0][campo] ?? '-';
-      if (a !== b) cambios.push(`${etiqueta}: ${a} → ${b}`);
+    const enDias = new Map();
+    for (const r of grupo) {
+      const base = previo.find((p) => p.diaSemana === r.diaSemana) ?? previo[0];
+      for (const cambio of cambiosEntre(base, r)) enDias.set(cambio, [...(enDias.get(cambio) ?? []), diaDe(r).toLowerCase()]);
     }
-    if (reglaATexto(previo[0].progresionRegla) !== reglaATexto(grupo[0].progresionRegla)) cambios.push('regla de progresión');
-    if (cambios.length) resultado.cambian.push({ ejercicio: grupo[0].ejercicio, cambios });
-    else resultado.iguales.push(grupo[0].ejercicio);
+    for (const [cambio, cuales] of enDias) cambios.push(cuales.length === grupo.length ? cambio : `${cambio} (${cuales.join(', ')})`);
+    if (cambios.length) resultado.cambian.push({ ejercicio: nombre(grupo), cambios });
+    else resultado.iguales.push(nombre(grupo));
   }
-  for (const [clave, grupo] of antes) if (!despues.has(clave)) resultado.salen.push(grupo[0].ejercicio);
+  for (const [clave, grupo] of antes) if (!despues.has(clave)) resultado.salen.push(nombre(grupo));
   return resultado;
 }

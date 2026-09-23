@@ -4,6 +4,9 @@
 // que la página esté activa). Al llegar a cero suena y vibra; un toque lo calla.
 // Cuenta contra una hora de fin: si el teléfono frena la página, al volver
 // muestra el tiempo correcto.
+// Guía de respiración (Aarón, 2026-09-23): «Inhala… / Exhala…» dentro del
+// anillo, al ritmo con el que ya «respira» (4 s crece, 6 s baja). Es solo CSS:
+// empieza al mismo tiempo que el anillo, así que no se desfasa.
 
 import { reloj } from '../logica/formato.js';
 import { h } from './dom.js';
@@ -43,7 +46,14 @@ export function crearCronometro({ alarma }) {
   const titulo = h('div', { class: 'crono-titulo' });
   const cifra = h('div', { class: 'crono-cifra' });
   const anillo = crearAnillo();
-  const circulo = h('div', { class: 'anillo' }, anillo.svg, cifra);
+  const respira = h(
+    'div',
+    { class: 'crono-respira', 'aria-hidden': 'true' },
+    h('span', { class: 'inhala' }, 'Inhala…'),
+    h('span', { class: 'exhala' }, 'Exhala…'),
+    h('span', { class: 'quieto' }, 'Respira despacio'), // sin animaciones (prefers-reduced-motion)
+  );
+  const circulo = h('div', { class: 'anillo' }, anillo.svg, cifra, respira);
   const siguiente = h('div', { class: 'crono-siguiente' });
   const frase = h('div', { class: 'crono-frase', 'aria-live': 'off' });
   const pista = h('div', { class: 'crono-pista' }, 'Toca en cualquier parte para seguir');
@@ -111,9 +121,9 @@ export function crearCronometro({ alarma }) {
   /**
    * Arranca el descanso. Con 0 segundos no aparece (ejercicios sin descanso).
    * @param {number} segundos
-   * @param {{texto?:string, frases?:string[], deshacer?:() => void}} [opciones]
+   * @param {{texto?:string, frases?:string[], deshacer?:() => void, respiracion?:boolean}} [opciones]
    */
-  function iniciar(segundos, { texto = '', frases = [], deshacer: accionDeshacer = null } = {}) {
+  function iniciar(segundos, { texto = '', frases = [], deshacer: accionDeshacer = null, respiracion = false } = {}) {
     cerrar();
     if (!segundos) return;
     total = segundos;
@@ -126,6 +136,7 @@ export function crearCronometro({ alarma }) {
     pista.hidden = true;
     saltar.hidden = false;
     deshacer.hidden = !accionDeshacer;
+    capa.classList.toggle('con-respiracion', respiracion); // antes de mostrarla: así empieza junto con el anillo
     capa.hidden = false;
     alarma.programar(segundos);
     mostrarFrases(frases);

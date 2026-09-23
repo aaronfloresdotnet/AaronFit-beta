@@ -3,11 +3,17 @@
 // lunes siguiente. La rutina actual sigue hasta ese día; sus renglones nunca
 // se borran (las series apuntan a ellos). Una rutina programada que todavía no
 // empieza se puede quitar o reemplazar.
+//
+// Nombres (Aarón, 2026-09-23): el historial sigue por nombre, así que el prompt
+// lleva los nombres que ya tienes, la revisión escribe los tuyos como siempre y
+// pregunta por los que se parecen; no se programa hasta que contestes.
 
 import { estancamiento, puntosPorClave, records, resumenSemana, ultimasSemanas } from '../logica/avance.js';
 import { cinturaEstatura, comparar, grasaMarina, medicionDeComparacion } from '../logica/cuerpo.js';
 import { cargar, implementoDe, normalizarEquipo, UNIDAD_DE } from '../logica/equipo.js';
 import { decimal, fechaCorta, numero as num } from '../logica/formato.js';
+import { nombresConocidos, nombresNuevos } from '../logica/nombres.js';
+import { slug } from '../logica/parseo.js';
 import {
   diasDelPlan, diferencias, esDiaDeCaminata, leerTSV, listaDePlanes, numeroDePlan, planDeSemana, renglonesDePlan,
   renglonesDeSemana, rutinaATSV,
@@ -17,6 +23,10 @@ import { porNumero } from '../logica/referencia.js';
 import { aTexto, fechaLocal, lunesDeSemana, semanaAnterior, semanaISO, sumarDias } from '../logica/semana.js';
 
 const porDiaYOrden = (a, b) => a.diaSemana - b.diaSemana || a.orden - b.orden;
+const alfabetico = (a, b) => a.localeCompare(b, 'es');
+
+/** Tus rutinas guardadas sin la programada que todavía no empieza: la nueva la reemplaza y no tiene historial. */
+const sinProgramada = (rutina, programado) => rutina.filter((r) => numeroDePlan(r) !== programado?.numero);
 
 /** Cada día de un plan con cuántos ejercicios trae. */
 function diasConEjercicios(renglones) {
@@ -74,6 +84,14 @@ export function crearServicioPlan({ repos, reloj = () => new Date(), ligasConVid
     ]);
     const actual = renglonesDeSemana(rutina, planes, t.semana);
     const puntos = puntosPorClave({ rutina, sesiones, series });
+
+    // Los nombres que ya tienes: los de tu rutina actual y los de rutinas anteriores.
+    const conocidos = nombresConocidos(sinProgramada(rutina, vigenteYProgramado(rutina, planes, t.semana).programado));
+    const enActual = new Set(actual.map((r) => slug(r.ejercicio)));
+    const nombres = { actuales: [], anteriores: [] };
+    for (const [s, nombre] of conocidos) (enActual.has(s) ? nombres.actuales : nombres.anteriores).push(nombre);
+    nombres.actuales.sort(alfabetico);
+    nombres.anteriores.sort(alfabetico);
 
     // Una línea por ejercicio de la rutina actual: la última vez, el récord y si está estancado.
     const avance = [];
@@ -142,6 +160,7 @@ export function crearServicioPlan({ repos, reloj = () => new Date(), ligasConVid
       queQuiero,
       equipo: normalizarEquipo(equipo).texto,
       rutinaTSV: rutinaATSV(actual),
+      nombres,
       avance,
       constancia,
       medidas: lineasMedidas,
@@ -152,15 +171,32 @@ export function crearServicioPlan({ repos, reloj = () => new Date(), ligasConVid
     return { texto };
   }
 
-  /** Revisa la respuesta de la IA sin guardar nada: errores, avisos, qué cambia y desde cuándo. */
-  async function revisar(texto) {
+  /**
+   * Revisa la respuesta de la IA sin guardar nada: errores, avisos, nombres por
+   * contestar, qué cambia y desde cuándo.
+   * @param {string} texto
+   * @param {{equivalencias?: Record<string, string|null>}} [opciones]  por cada nombre
+   *   que no tienes, como lo escribió la IA: el tuyo que es (su historial sigue) o null (es nuevo)
+   */
+  async function revisar(texto, { equivalencias = {} } = {}) {
     const t = ahora();
     const { rutina, planes } = await leer();
     const { vigente, programado } = vigenteYProgramado(rutina, planes, t.semana);
     const numero = programado ? programado.numero : Math.max(...planes.map((p) => p.numero)) + 1;
     const { filas, errores: erroresTSV } = leerTSV(texto);
     if (erroresTSV.length) return { ok: false, errores: erroresTSV, avisos: [] };
-    const { renglones, errores, avisos } = renglonesDePlan(filas, { plan: numero, ligasValidas: new Set(await ligasPermitidas(rutina)) });
+
+    // Los nombres que ya tienes se escriben como siempre (mayúsculas y acentos incluidos);
+    // uno que no tienes toma el tuyo si así lo contestaste.
+    const previos = sinProgramada(rutina, programado);
+    const conocidos = nombresConocidos(previos);
+    const nombres = nombresNuevos(filas.map((f) => f.Ejercicio), conocidos, equivalencias);
+    const elegidos = new Map(nombres.filter((n) => n.decision).map((n) => [slug(n.nombre), n.decision]));
+    const conNombres = filas.map((f) => {
+      const nombre = conocidos.get(slug(f.Ejercicio)) ?? elegidos.get(slug(f.Ejercicio));
+      return nombre ? { ...f, Ejercicio: nombre } : f;
+    });
+    const { renglones, errores, avisos } = renglonesDePlan(conNombres, { plan: numero, ligasValidas: new Set(await ligasPermitidas(rutina)), previos });
     if (errores.length) return { ok: false, errores, avisos };
 
     // Pesos que no salen exactos con tus discos: aviso, no error (el primer día lo ajustas).
@@ -191,14 +227,24 @@ export function crearServicioPlan({ repos, reloj = () => new Date(), ligasConVid
         ejercicios: new Set(renglones.map((r) => r.clave)).size,
         seriesSemana: renglones.filter((r) => !esDiaDeCaminata(r.dia)).reduce((s, r) => s + r.series, 0),
       },
-      diferencias: diferencias(actual, renglones),
+      nombres,
+      conocidos: [...conocidos.values()].sort(alfabetico),
+      pendientes: nombres.filter((n) => n.parecidos.length && n.decision === undefined).length,
+      diferencias: diferencias(actual, renglones, previos),
     };
   }
 
-  /** Guarda la rutina nueva desde el lunes siguiente (reemplaza la programada, si había). */
-  async function programar(texto) {
-    const revision = await revisar(texto);
+  /**
+   * Guarda la rutina nueva desde el lunes siguiente (reemplaza la programada, si
+   * había). No la guarda mientras falte contestar si un nombre es uno tuyo.
+   */
+  async function programar(texto, opciones = {}) {
+    const revision = await revisar(texto, opciones);
     if (!revision.ok) return revision;
+    if (revision.pendientes) {
+      const n = revision.pendientes;
+      return { ok: false, errores: [`Falta contestar si ${n === 1 ? 'un nombre es' : `${n} nombres son`} de un ejercicio que ya tienes.`], avisos: revision.avisos };
+    }
     const t = ahora();
     const { rutina, planes } = await leer();
     const quitar = revision.reemplaza ? rutina.filter((r) => numeroDePlan(r) === revision.reemplaza.numero).map((r) => r.id) : [];

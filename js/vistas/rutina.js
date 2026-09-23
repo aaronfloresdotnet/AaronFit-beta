@@ -2,6 +2,8 @@
 // app arma el prompt y lo copias a Claude o Gemini, y pegas su respuesta. La
 // app la revisa renglón por renglón, te muestra qué cambia y la programa desde
 // el lunes siguiente. Hasta entonces sigues con tu rutina actual.
+// Los nombres que no tienes se contestan aquí: si se parece a uno tuyo, no se
+// programa hasta que digas si es el mismo; cualquiera se puede unir a mano.
 
 import { preguntar } from '../componentes/dialogo.js';
 import { h, pintar } from '../componentes/dom.js';
@@ -17,6 +19,7 @@ export async function montar(raiz, _parametros, app) {
   let prompt = null;
   let respuesta = '';
   let revision = null;
+  let equivalencias = {}; // nombre de la IA → el tuyo (su historial sigue) o null (es nuevo)
   let listo = null;
 
   render();
@@ -150,12 +153,60 @@ export async function montar(raiz, _parametros, app) {
 
   async function revisar() {
     try {
-      revision = await app.servicios.plan.revisar(respuesta);
+      revision = await app.servicios.plan.revisar(respuesta, { equivalencias });
       render();
       raiz.querySelector('.revision-rutina')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     } catch (error) {
       app.error(error);
     }
+  }
+
+  /** Tu respuesta sobre un nombre que no tienes: vuelve a revisar con ella (no se guarda nada). */
+  async function decidir(nombre, valor) {
+    try {
+      equivalencias = { ...equivalencias, [nombre]: valor };
+      revision = await app.servicios.plan.revisar(respuesta, { equivalencias });
+      render();
+    } catch (error) {
+      app.error(error);
+    }
+  }
+
+  const citar = (nombres) => nombres.map((n) => `«${n}»`).join(nombres.length > 2 ? ', ' : ' y ');
+
+  /** Los nombres que no tienes: los parecidos a uno tuyo se contestan con botones; los demás, con una lista. */
+  function tarjetaNombres() {
+    if (!revision.nombres.length) return null;
+    const conocidos = revision.conocidos;
+    const pregunta = (n) => {
+      const opcion = (etiqueta, valor) =>
+        h('button', { type: 'button', class: `boton opcion-nombre${n.decision === valor ? ' elegida' : ''}`, 'aria-pressed': String(n.decision === valor), onclick: () => decidir(n.nombre, valor) }, etiqueta);
+      return h(
+        'li',
+        { class: `nombre-nuevo${n.decision === undefined ? ' pendiente' : ''}` },
+        h('p', {}, h('strong', {}, `«${n.nombre}»`), ` se parece a ${citar(n.parecidos)}. ¿Es el mismo ejercicio?`),
+        h('div', { class: 'opciones-nombre' }, n.parecidos.map((p) => opcion(`Sí, es «${p}»`, p)), opcion('No, es otro', null)),
+      );
+    };
+    const lista = (n) =>
+      h(
+        'li',
+        { class: 'nombre-nuevo' },
+        h('p', {}, h('strong', {}, n.nombre), h('small', {}, ' · ¿es uno que ya haces?')),
+        h(
+          'select',
+          { class: 'entrada-select', 'aria-label': `${n.nombre}: ¿es uno que ya haces?`, onchange: (evento) => decidir(n.nombre, evento.target.value || null) },
+          h('option', { value: '', selected: !n.decision }, 'No: es nuevo'),
+          conocidos.map((c) => h('option', { value: c, selected: n.decision === c }, `Sí: ${c}`)),
+        ),
+      );
+    return h(
+      'div',
+      { class: 'nombres-revision' },
+      h('h3', { class: 'titulo-grafica' }, `Nombres que no tienes (${revision.nombres.length})`),
+      h('p', { class: 'nota' }, 'Si alguno es un ejercicio que ya haces, dilo: se escribe tu nombre de siempre y su historial sigue.'),
+      h('ul', { class: 'lista-nombres' }, revision.nombres.map((n) => (n.parecidos.length ? pregunta(n) : lista(n)))),
+    );
   }
 
   function tarjetaRevision() {
@@ -182,20 +233,25 @@ export async function montar(raiz, _parametros, app) {
       ),
       listaDias(resumen.dias),
       revision.reemplaza ? h('p', { class: 'nota aviso' }, `Reemplaza a la ${revision.reemplaza.nombre}, que todavía no empieza.`) : null,
+      tarjetaNombres(),
       bloque(`Nuevos (${d.nuevos.length}): empiezan sin historial`, d.nuevos),
+      bloque(`Vuelven (${d.vuelven.length}): de una rutina anterior, con su historial`, d.vuelven),
       bloque(`Cambian (${d.cambian.length}): conservan su historial`, d.cambian.map((c) => `${c.ejercicio}: ${c.cambios.join('; ')}`)),
       bloque(`Salen (${d.salen.length})`, d.salen),
       d.iguales.length ? h('p', { class: 'nota' }, `Iguales (${d.iguales.length}): ${d.iguales.join(', ')}.`) : null,
       bloque('Avisos', revision.avisos),
       h('p', { class: 'nota' }, 'Tu rutina actual sigue hasta el domingo; tu historial no se borra.'),
-      h('button', { type: 'button', class: 'boton primario enorme', onclick: programar }, `Programar desde el lunes ${lunesDe(revision.desde)}`),
+      revision.pendientes
+        ? h('p', { class: 'nota aviso' }, `Para programar, contesta arriba si ${revision.pendientes === 1 ? 'el nombre que se parece es el mismo ejercicio' : `los ${revision.pendientes} nombres que se parecen son el mismo ejercicio`}.`)
+        : null,
+      h('button', { type: 'button', class: 'boton primario enorme', disabled: revision.pendientes > 0, onclick: programar }, `Programar desde el lunes ${lunesDe(revision.desde)}`),
     );
   }
 
   async function programar(evento) {
     evento.currentTarget.disabled = true;
     try {
-      const resultado = await app.servicios.plan.programar(respuesta);
+      const resultado = await app.servicios.plan.programar(respuesta, { equivalencias });
       if (!resultado.ok) {
         revision = resultado;
       } else {

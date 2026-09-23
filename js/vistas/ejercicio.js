@@ -128,14 +128,13 @@ export async function montar(raiz, [idSesion, idRutina], app) {
     if (!implemento || unidadPeso !== UNIDAD_DE[implemento]) return null;
     const r = cargar({ implemento, peso, equipo: datos.equipo });
     const discos = (lista) => lista.map(formato.numero).join(' + ');
-    if (r.estado === 'falta-mango') return 'Para calcular los discos falta el peso del mango (Respaldo › Tu equipo).';
     if (r.estado === 'imposible') return r.minimo === undefined ? null : `Es menos de lo que pesa sin discos (${formato.numero(r.minimo)} ${unidadPeso}).`;
     if (r.estado === 'aproximado') return `No sale exacto con tus discos: ${r.cercanos.map((c) => `${formato.numero(c)} ${unidadPeso}`).join(' o ')}.`;
     if (implemento === 'barra') return r.discos.length ? `Por lado: ${discos(r.discos)}` : 'Barra sola';
     if (implemento === 'landmine') return `En la punta: ${discos(r.discos)}`;
-    if (implemento === 'polea') return `Discos: ${discos(r.discos)}`;
+    if (implemento === 'polea') return r.discos.length ? `Por lado: ${discos(r.discos)}` : 'Sin discos';
     const cual = implemento === 'mancuernas' ? 'Cada mancuerna' : 'La mancuerna';
-    return `${cual}: mango + por lado ${r.discos.length ? discos(r.discos) : 'nada'}${r.sobreTope ? ' (pasa tu tope)' : ''}`;
+    return `${cual}: ${r.discos.length ? `por lado ${discos(r.discos)}` : 'solo el mango'}${r.sobreTope ? ' (pasa tu tope)' : ''}`;
   }
 
   /** El paso del + y − del peso: el salto más chico que se puede cargar con tu equipo. */
@@ -426,7 +425,12 @@ export async function montar(raiz, [idSesion, idRutina], app) {
     };
     if (siguienteSerie === null) {
       const destino = datos.siguientePendiente;
-      app.cronometro.iniciar(resultado.descansoSeg, { texto: destino ? `Sigue: ${destino.nombre}` : '', frases, deshacer: deshacerUltima });
+      app.cronometro.iniciar(resultado.descansoSeg, {
+        texto: destino ? `Sigue: ${destino.nombre}` : '',
+        frases,
+        deshacer: deshacerUltima,
+        respiracion: app.preferencias.respiracion,
+      });
       app.ir(destino ? `#/ejercicio/${sesionId}/${destino.id}` : `#/dia/${sesionId}`, { reemplazar: true });
       avisar();
       if (!sinDescanso && destino) decir(`Sigue: ${destino.nombre}.`);
@@ -440,6 +444,7 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       texto: `Sigue: serie ${siguienteSerie} · ${formato.serie(precarga, e.tipoMedida)}`,
       frases,
       deshacer: deshacerUltima,
+      respiracion: app.preferencias.respiracion,
     });
     avisar();
     if (!sinDescanso) decir(`Sigue: serie ${siguienteSerie}, ${formato.serieHablada(precarga, e.tipoMedida)}.`);

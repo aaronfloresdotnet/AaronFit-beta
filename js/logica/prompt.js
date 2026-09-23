@@ -10,6 +10,8 @@ import { COLUMNAS_RUTINA } from './plan.js';
  * @param {string} p.queQuiero  lo que escribiste
  * @param {string} p.equipo  tu equipo en palabras
  * @param {string} p.rutinaTSV  tu rutina actual, en el formato de respuesta
+ * @param {{actuales:string[], anteriores:string[]}} p.nombres  los ejercicios que ya tienes:
+ *   los de tu rutina actual y los de rutinas anteriores (idea de Aarón, 2026-09-23)
  * @param {string[]} p.avance  una línea por ejercicio
  * @param {string|null} p.constancia
  * @param {string[]|null} p.medidas  null si decidiste no incluirlas
@@ -17,7 +19,7 @@ import { COLUMNAS_RUTINA } from './plan.js';
  * @param {string[]} p.ligas  las únicas ligas permitidas
  * @param {string} p.fecha  '2026-09-23'
  */
-export function armarPrompt({ queQuiero, equipo, rutinaTSV, avance, constancia, medidas, notas, ligas, fecha }) {
+export function armarPrompt({ queQuiero, equipo, rutinaTSV, nombres, avance, constancia, medidas, notas, ligas, fecha }) {
   const seccion = (titulo, cuerpo) => `## ${titulo}\n${cuerpo}`;
   const lista = (lineas, vacio) => (lineas.length ? lineas.map((l) => `- ${l}`).join('\n') : vacio);
   const partes = [
@@ -25,6 +27,15 @@ export function armarPrompt({ queQuiero, equipo, rutinaTSV, avance, constancia, 
     seccion('Lo que quiero', queQuiero.trim() || '(No escribí nada: propón una mejora razonable a mi rutina actual).'),
     seccion('Mi equipo', equipo.trim()),
     seccion('Mi rutina actual', `\`\`\`tsv\n${rutinaTSV}\n\`\`\``),
+    seccion(
+      'Ejercicios que ya tengo (nombres fijos)',
+      [
+        'La app junta el historial de cada ejercicio por su nombre. Si usas uno de estos, escríbelo EXACTAMENTE como aquí, letra por letra y con acentos: no lo traduzcas ni le agregues o quites palabras. Un ejercicio distinto lleva un nombre nuevo que no se confunda con estos.',
+        'En mi rutina actual:',
+        lista(nombres.actuales, '(ninguno)'),
+        nombres.anteriores.length ? `De rutinas anteriores:\n${lista(nombres.anteriores, '')}` : null,
+      ].filter(Boolean).join('\n'),
+    ),
     seccion('Cómo me ha ido', [constancia ?? 'Todavía no hay semanas completas.', lista(avance, 'Sin series registradas todavía.')].join('\n')),
     medidas === null ? null : seccion('Mis medidas', lista(medidas, 'Sin medidas registradas.')),
     seccion('Mis notas por ejercicio', lista(notas, 'Sin notas.')),
@@ -37,7 +48,7 @@ export function armarPrompt({ queQuiero, equipo, rutinaTSV, avance, constancia, 
         '- Día: «LUNES - Nombre del día» (LUNES, MARTES, MIÉRCOLES, JUEVES, VIERNES, SÁBADO o DOMINGO). Un día de caminata se llama «SÁBADO - Caminata» (con la palabra Caminata).',
         '- Orden: 1, 2, 3… dentro de cada día, sin repetir.',
         '- Grupo: el grupo muscular principal.',
-        '- Ejercicio: en español. Si un ejercicio sigue, escríbelo EXACTAMENTE igual que en mi rutina actual: así conservo su historial.',
+        '- Ejercicio: en español. Si es uno de «Ejercicios que ya tengo», con el nombre EXACTO de esa lista: así conservo su historial.',
         '- Equipo: con lo que tengo. Accesorio polea: el accesorio, o «-».',
         '- Peso sugerido: uno de «50 kg», «35 lb cada una» (dos mancuernas, peso de cada una), «20 lb» (una mancuerna), «20 kg + barra» (landmine, sin contar la barra), «Barra sola 20 kg», «Banda negra 25-65 lb», «Peso corporal». En barra el peso INCLUYE la barra de 20 kg. Usa solo pesos que se puedan armar con mis discos.',
         '- Series: número entero.',

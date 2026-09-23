@@ -57,7 +57,7 @@ const app = {
   aviso: crearAvisos(),
   voz: crearVoz(),
   // Se leen al arrancar; la pantalla de equipo las cambia.
-  preferencias: { voz: false },
+  preferencias: { voz: false, respiracion: true }, // las iniciales de servicios/ajustes.js, mientras cargan
   // Valores de una serie recién deshecha, para volver a mostrarlos en su tarjeta.
   borrador: null,
   ir(ruta, { reemplazar = false } = {}) {
