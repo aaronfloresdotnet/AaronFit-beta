@@ -1,29 +1,66 @@
-// Pantalla: cronómetro de descanso (encargo 6.5). Cuenta regresiva grande,
-// visible desde lejos. Al llegar a cero suena y vibra; un toque en cualquier
-// parte lo calla. Se puede saltar con un botón secundario.
-// Cuenta contra una hora de fin (no contando tics): si el teléfono frena la
-// página, al volver muestra el tiempo correcto.
+// Pantalla: cronómetro de descanso (encargo 6.5). Anillo que se vacía con la
+// cuenta regresiva grande, la siguiente serie, y frases que pasan despacio.
+// Tres pitidos en los últimos 3 s; vibración corta a los 10 s (esa depende de
+// que la página esté activa). Al llegar a cero suena y vibra; un toque lo calla.
+// Cuenta contra una hora de fin: si el teléfono frena la página, al volver
+// muestra el tiempo correcto.
 
 import { reloj } from '../logica/formato.js';
 import { h } from './dom.js';
 
+const SVG = 'http://www.w3.org/2000/svg';
+const RADIO = 45;
+const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
+const CADA_FRASE_MS = 12_000;
+
+function crearAnillo() {
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('class', 'anillo-svg');
+  svg.setAttribute('aria-hidden', 'true');
+  const fondo = document.createElementNS(SVG, 'circle');
+  const progreso = document.createElementNS(SVG, 'circle');
+  for (const [c, clase] of [[fondo, 'anillo-fondo'], [progreso, 'anillo-progreso']]) {
+    c.setAttribute('cx', '50');
+    c.setAttribute('cy', '50');
+    c.setAttribute('r', String(RADIO));
+    c.setAttribute('class', clase);
+    svg.append(c);
+  }
+  progreso.style.strokeDasharray = String(CIRCUNFERENCIA);
+  return { svg, fijar: (fraccion) => (progreso.style.strokeDashoffset = String(CIRCUNFERENCIA * (1 - Math.max(0, Math.min(1, fraccion))))) };
+}
+
 export function crearCronometro({ alarma }) {
   let finEn = 0;
+  let total = 0;
   let intervalo = null;
+  let rotacion = null;
+  let vibroA10 = false;
   let estado = 'inactivo'; // inactivo | contando | sonando
+  let alDeshacer = null;
 
   const titulo = h('div', { class: 'crono-titulo' });
   const cifra = h('div', { class: 'crono-cifra' });
+  const anillo = crearAnillo();
+  const circulo = h('div', { class: 'anillo' }, anillo.svg, cifra);
   const siguiente = h('div', { class: 'crono-siguiente' });
+  const frase = h('div', { class: 'crono-frase', 'aria-live': 'off' });
   const pista = h('div', { class: 'crono-pista' }, 'Toca en cualquier parte para seguir');
-  const saltar = h('button', { type: 'button', class: 'boton secundario crono-saltar' }, 'Saltar descanso');
-  const capa = h('div', { class: 'crono', role: 'timer', 'aria-live': 'off', hidden: true }, titulo, cifra, siguiente, pista, saltar);
+  const saltar = h('button', { type: 'button', class: 'boton secundario crono-boton' }, 'Saltar descanso');
+  const deshacer = h('button', { type: 'button', class: 'enlace crono-deshacer' }, 'Deshacer la serie');
+  const capa = h('div', { class: 'crono', role: 'timer', hidden: true }, titulo, circulo, siguiente, frase, pista, saltar, deshacer);
   document.body.append(capa);
 
   function tic() {
     if (estado !== 'contando') return;
     const restante = (finEn - Date.now()) / 1000;
     cifra.textContent = reloj(restante);
+    anillo.fijar(restante / total);
+    if (!vibroA10 && total > 15 && restante <= 10 && restante > 0) {
+      vibroA10 = true;
+      alarma.avisoCorto();
+    }
     if (restante <= 0) sonar();
   }
 
@@ -33,33 +70,65 @@ export function crearCronometro({ alarma }) {
     intervalo = null;
     titulo.textContent = '¡A darle!';
     cifra.textContent = '0:00';
+    anillo.fijar(0);
     capa.classList.add('sonando');
     pista.hidden = false;
     saltar.hidden = true;
     alarma.vibrar();
   }
 
+  function mostrarFrases(frases) {
+    clearInterval(rotacion);
+    rotacion = null;
+    if (!frases.length) {
+      frase.textContent = '';
+      return;
+    }
+    let i = 0;
+    const siguienteFrase = () => {
+      frase.classList.remove('entra');
+      void frase.offsetWidth; // reinicia la animación
+      frase.textContent = frases[i % frases.length];
+      frase.classList.add('entra');
+      i++;
+    };
+    siguienteFrase();
+    rotacion = setInterval(siguienteFrase, CADA_FRASE_MS);
+  }
+
   function cerrar() {
     clearInterval(intervalo);
+    clearInterval(rotacion);
     intervalo = null;
+    rotacion = null;
     estado = 'inactivo';
+    alDeshacer = null;
     alarma.detener();
     capa.hidden = true;
     capa.classList.remove('sonando');
   }
 
-  /** Arranca el descanso. Con 0 segundos no aparece (ejercicios sin descanso). */
-  function iniciar(segundos, { texto = '' } = {}) {
+  /**
+   * Arranca el descanso. Con 0 segundos no aparece (ejercicios sin descanso).
+   * @param {number} segundos
+   * @param {{texto?:string, frases?:string[], deshacer?:() => void}} [opciones]
+   */
+  function iniciar(segundos, { texto = '', frases = [], deshacer: accionDeshacer = null } = {}) {
     cerrar();
     if (!segundos) return;
+    total = segundos;
     finEn = Date.now() + segundos * 1000;
+    vibroA10 = false;
     estado = 'contando';
+    alDeshacer = accionDeshacer;
     titulo.textContent = 'Descanso';
     siguiente.textContent = texto;
     pista.hidden = true;
     saltar.hidden = false;
+    deshacer.hidden = !accionDeshacer;
     capa.hidden = false;
     alarma.programar(segundos);
+    mostrarFrases(frases);
     tic();
     intervalo = setInterval(tic, 250);
   }
@@ -67,6 +136,12 @@ export function crearCronometro({ alarma }) {
   saltar.addEventListener('click', (evento) => {
     evento.stopPropagation();
     cerrar();
+  });
+  deshacer.addEventListener('click', (evento) => {
+    evento.stopPropagation();
+    const accion = alDeshacer;
+    cerrar();
+    accion?.();
   });
   capa.addEventListener('click', () => {
     if (estado === 'sonando') cerrar();

@@ -819,9 +819,85 @@ body.entrenando .principal {
   font-variant-numeric: tabular-nums;
 }
 
+/* Anillo del descanso: se vacía con el tiempo y "respira" despacio. */
+.anillo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(78vw, 340px);
+  aspect-ratio: 1;
+  animation: respira 10s ease-in-out infinite;
+}
+
+.anillo-svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.anillo-fondo,
+.anillo-progreso {
+  fill: none;
+  stroke-width: 5;
+}
+
+.anillo-fondo {
+  stroke: var(--borde);
+}
+
+.anillo-progreso {
+  stroke: var(--acento);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+
+.anillo .crono-cifra {
+  font-size: min(20vw, 6.5rem);
+}
+
+@keyframes respira {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.04);
+  }
+}
+
 .crono-siguiente {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+/* Frases que pasan despacio, como de fondo. */
+.crono-frase {
+  max-width: 34ch;
+  min-height: 3.2em;
+  font-size: 1.05rem;
+  font-style: italic;
   color: var(--texto-2);
+  opacity: 0;
+}
+
+.crono-frase.entra {
+  animation: frase 12s ease-in-out forwards;
+}
+
+@keyframes frase {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  12%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
 }
 
 .crono-pista {
@@ -829,9 +905,17 @@ body.entrenando .principal {
   font-weight: 700;
 }
 
-.crono-saltar {
-  margin-top: 24px;
+.crono-boton {
+  margin-top: 16px;
   min-width: 220px;
+}
+
+.crono-deshacer {
+  color: var(--texto-2);
+}
+
+.crono.serie .crono-cifra {
+  font-size: min(30vw, 10rem);
 }
 
 .crono.sonando {
@@ -855,6 +939,12 @@ body.entrenando .principal {
     animation: none;
     background: var(--acento);
     color: var(--acento-texto);
+  }
+
+  .anillo,
+  .crono-frase.entra {
+    animation: none;
+    opacity: 1;
   }
 }
 
@@ -1096,6 +1186,9 @@ body.entrenando .barra-inferior {
 }
 
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   position: fixed;
   left: 50%;
   bottom: calc(84px + var(--seguro-abajo));
@@ -1113,6 +1206,17 @@ body.entrenando .barra-inferior {
 
 body.entrenando .toast {
   bottom: calc(24px + var(--seguro-abajo));
+}
+
+.toast-accion {
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--acento);
+  color: var(--acento-texto);
+  font-weight: 900;
+  cursor: pointer;
 }
 
 :focus-visible {

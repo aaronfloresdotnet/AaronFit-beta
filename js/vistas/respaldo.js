@@ -25,6 +25,7 @@ export async function montar(raiz, _parametros, app) {
   let texto = null;
   let revision = null;
   let resultado = null;
+  let textoErrores = null; // si el portapapeles falla, se muestra para copiarlo a mano
 
   render();
 
@@ -70,7 +71,53 @@ export async function montar(raiz, _parametros, app) {
         h('p', {}, 'Importar REEMPLAZA todo lo que hay en la app. No mezcla.'),
         resultado ? bloqueResultado() : revision ? bloqueRevision() : selector(),
       ),
+      bloqueErrores(),
     );
+  }
+
+  function bloqueErrores() {
+    const lista = app.errores.leerErrores();
+    return h(
+      'section',
+      { class: 'tarjeta' },
+      h('h2', {}, 'Errores de la app'),
+      lista.length
+        ? [
+            h('p', {}, `${cuantos(lista.length, 'error registrado', 'errores registrados')}. El último: ${formatearHora(lista.at(-1).hora)}.`),
+            h('p', { class: 'nota' }, 'Copia la lista y pégasela a Claude tal cual: trae la versión, el teléfono y dónde pasó cada error.'),
+            h(
+              'div',
+              { class: 'botones-fila' },
+              h('button', { type: 'button', class: 'boton primario', onclick: copiarErrores }, 'Copiar para Claude'),
+              h('button', { type: 'button', class: 'boton', onclick: borrarErrores }, 'Borrar lista'),
+            ),
+            textoErrores ? h('textarea', { class: 'entrada-nota', rows: '8', readonly: true }, textoErrores) : null,
+          ]
+        : h('p', { class: 'nota' }, 'Sin errores registrados.'),
+    );
+  }
+
+  function formatearHora(iso) {
+    const instante = new Date(iso);
+    return `${fechaCorta(aTexto(fechaLocal(instante)))} ${String(instante.getHours()).padStart(2, '0')}:${String(instante.getMinutes()).padStart(2, '0')}`;
+  }
+
+  async function copiarErrores() {
+    const contenido = app.errores.textoParaClaude();
+    try {
+      await navigator.clipboard.writeText(contenido);
+      app.aviso('Copiado: pégalo en tu chat con Claude', 3500);
+    } catch {
+      textoErrores = contenido;
+      render();
+      app.aviso('No pude copiar solo: selecciona el texto y cópialo', 4000);
+    }
+  }
+
+  function borrarErrores() {
+    app.errores.borrarErrores();
+    textoErrores = null;
+    render();
   }
 
   async function exportar() {

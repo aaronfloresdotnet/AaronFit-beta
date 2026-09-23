@@ -3,6 +3,7 @@
 // Recibe sus dependencias al crearse, para poder probarlo sin IndexedDB.
 
 import { DECISIONES_VACIAS, planSemana, recorrer, saltar } from '../logica/dias.js';
+import { frasesDeAvance, mezclarFrases } from '../logica/frases.js';
 import { evaluarProgresion, referenciaDeAceptar } from '../logica/progresion.js';
 import { porNumero, precargar, seriesDeUltimaSesion } from '../logica/referencia.js';
 import { aTexto, diaSemana, fechaLocal, semanaAnterior, semanaISO, semanasEntre } from '../logica/semana.js';
@@ -280,9 +281,86 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date() }) 
     const ejercicio = todas.find((r) => r.id === rutinaId);
     const referencia = referenciaDeAceptar(propuesta, { hora: t.hora, semanaISO: sesion.semanaISO });
     const cambios = [[`referencia:${ejercicio.clave}`, referencia]];
-    if (propuesta.implemento) cambios.push([`implemento:${ejercicio.clave}`, { texto: propuesta.implemento, desde: t.fecha }]);
+    if (propuesta.implemento) {
+      cambios.push([`implemento:${ejercicio.clave}`, { texto: propuesta.implemento, desde: t.fecha, hora: t.hora }]);
+    }
     await repos.estado.escribirVarias(cambios);
     return referencia;
+  }
+
+  /**
+   * Deshace la última serie guardada de la sesión (la de hora más reciente;
+   * si se capturó por lado, los dos lados). Si esa serie había cerrado la
+   * sesión, la reabre; si después se aceptó un aviso de ese ejercicio, lo quita.
+   * Devuelve lo que se deshizo, para volver a mostrarlo en su tarjeta.
+   */
+  async function deshacerUltimaSerie(sesionId) {
+    const [sesion, todas, series] = await Promise.all([repos.sesiones.obtener(sesionId), rutina(), repos.series.deSesion(sesionId)]);
+    const completadas = series.filter((s) => s.completada);
+    if (!sesion || !completadas.length) return null;
+    const ultima = completadas.reduce((a, b) => (b.hora > a.hora ? b : a));
+    const deshechas = series.filter((s) => s.rutinaId === ultima.rutinaId && s.numeroSerie === ultima.numeroSerie);
+    const ejercicio = todas.find((r) => r.id === ultima.rutinaId);
+    const [referencia, implemento] = await Promise.all([
+      repos.estado.leer(`referencia:${ejercicio.clave}`),
+      repos.estado.leer(`implemento:${ejercicio.clave}`),
+    ]);
+    const borrarEstado = [];
+    if (referencia && referencia.hora >= ultima.hora) borrarEstado.push(`referencia:${ejercicio.clave}`);
+    if (implemento?.hora && implemento.hora >= ultima.hora) borrarEstado.push(`implemento:${ejercicio.clave}`);
+    const reabrir = sesion.estado === 'completa' ? { ...sesion, estado: 'en_curso', fin: null } : null;
+    await repos.deshacerCaptura({ borrarSeries: deshechas.map((s) => s.id), sesion: reabrir, borrarEstado });
+
+    const campo = CAMPO_VALOR[ejercicio.tipoMedida];
+    const lado = (l) => deshechas.find((s) => s.lado === l)?.[campo] ?? null;
+    return {
+      rutinaId: ultima.rutinaId,
+      numeroSerie: ultima.numeroSerie,
+      borrador: {
+        peso: ultima.peso,
+        unidadPeso: ultima.unidadPeso,
+        rir: ultima.rirReportado,
+        valor: deshechas.length > 1 ? null : ultima[campo],
+        lados: deshechas.length > 1 ? { izq: lado('izq'), der: lado('der') } : null,
+      },
+    };
+  }
+
+  /** Frases para el descanso: tu avance por ejercicio y tu constancia, mezclados con las listas. */
+  async function frasesDescanso(azar) {
+    const t = ahora();
+    const todas = await rutina();
+    const [series, sesiones, sesionesSemana] = await Promise.all([
+      repos.series.deRutinas(todas.map((r) => r.id)),
+      repos.sesiones.todas(),
+      repos.sesiones.deSemana(t.semana),
+    ]);
+    const avances = [];
+    for (const [clave, grupo] of Map.groupBy(todas, (r) => r.clave)) {
+      const ids = grupo.map((r) => r.id);
+      const conPeso = series
+        .filter((s) => s.completada && ids.includes(s.rutinaId) && s.unidadPeso !== 'corporal' && s.peso !== null)
+        .sort((a, b) => a.hora.localeCompare(b.hora));
+      if (conPeso.length < 2) continue;
+      const primera = conPeso[0];
+      const ultima = conPeso.at(-1);
+      if (primera.unidadPeso !== ultima.unidadPeso) continue;
+      avances.push({
+        clave,
+        ejercicio: grupo[0].ejercicio,
+        unidad: ultima.unidadPeso,
+        primerPeso: primera.peso,
+        ultimoPeso: ultima.peso,
+        semanas: semanasEntre(primera.semanaISO, ultima.semanaISO),
+      });
+    }
+    const hechosSemana = new Set(sesionesSemana.filter((s) => s.estado === 'completa' && s.diaSemanaPlan <= 5).map((s) => s.diaSemanaPlan));
+    const propias = frasesDeAvance(avances, {
+      entrenamientos: sesiones.filter((s) => s.estado === 'completa').length,
+      diasSemana: 5,
+      diasHechos: hechosSemana.size,
+    });
+    return mezclarFrases(propias, azar);
   }
 
   /**
@@ -322,6 +400,8 @@ export function crearServicioEntrenamiento({ repos, reloj = () => new Date() }) 
     datosEjercicio,
     guardarSerie,
     aceptarProgresion,
+    deshacerUltimaSerie,
+    frasesDescanso,
     terminarSesion,
     /** Tras importar un respaldo la rutina puede cambiar. */
     olvidarRutina: () => {

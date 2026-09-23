@@ -6,9 +6,11 @@ import { CONFIG } from './config.js';
 import { crearAvisos } from './componentes/aviso.js';
 import { crearCronometro } from './componentes/cronometro.js';
 import { h, pintar } from './componentes/dom.js';
+import { crearTemporizadorSerie } from './componentes/temporizador-serie.js';
 import { registrarServiceWorker } from './plataforma/actualizacion.js';
 import * as almacenamiento from './plataforma/almacenamiento.js';
 import * as archivos from './plataforma/archivos.js';
+import * as errores from './plataforma/errores.js';
 import { crearPantallaDespierta } from './plataforma/pantalla.js';
 import { crearAlarma } from './plataforma/sonido.js';
 import { servicios } from './servicios/contenedor.js';
@@ -26,6 +28,8 @@ const RUTAS = [
   { patron: /^#\/respaldo$/, vista: vistaRespaldo, seccion: 'respaldo' },
 ];
 
+errores.escucharErrores();
+
 const principal = document.getElementById('principal');
 const alarma = crearAlarma();
 
@@ -39,9 +43,13 @@ const app = {
   alarma,
   archivos,
   almacenamiento,
+  errores,
   cronometro: crearCronometro({ alarma }),
+  temporizadorSerie: crearTemporizadorSerie({ alarma }),
   pantalla: crearPantallaDespierta(),
   aviso: crearAvisos(),
+  // Valores de una serie recién deshecha, para volver a mostrarlos en su tarjeta.
+  borrador: null,
   ir(ruta, { reemplazar = false } = {}) {
     if (location.hash === ruta) mostrar();
     else if (reemplazar) location.replace(ruta);
@@ -51,6 +59,7 @@ const app = {
   noEncontrado: () => app.ir('#/', { reemplazar: true }),
   error(error) {
     console.error(error);
+    errores.registrarError(error, 'app');
     app.aviso(`Algo falló: ${error?.message ?? error}`, 5000);
   },
 };
@@ -91,6 +100,7 @@ async function mostrar() {
   } catch (error) {
     if (miTurno !== turno) return;
     console.error(error);
+    errores.registrarError(error, `vista ${hash}`);
     pintar(
       principal,
       h(
@@ -129,7 +139,10 @@ async function arrancar() {
     },
   });
   window.addEventListener('hashchange', mostrar);
-  window.addEventListener('unhandledrejection', (evento) => app.error(evento.reason));
+  window.addEventListener('unhandledrejection', (evento) => {
+    console.error(evento.reason);
+    app.aviso(`Algo falló: ${evento.reason?.message ?? evento.reason}`, 5000);
+  });
   mostrar();
 }
 

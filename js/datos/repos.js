@@ -59,6 +59,20 @@ export function guardarCaptura({ nuevas, borrar = [], sesion }) {
   });
 }
 
+/**
+ * Deshace una captura en UNA transacción: borra sus series, reabre la sesión
+ * si esa captura la había cerrado y quita los avisos aceptados después de ella.
+ */
+export function deshacerCaptura({ borrarSeries, sesion, borrarEstado = [] }) {
+  return enTransaccion(['series', 'sesiones', 'estado'], 'readwrite', (tx) => {
+    const series = tx.objectStore('series');
+    for (const id of borrarSeries) series.delete(id);
+    if (sesion) tx.objectStore('sesiones').put(sesion);
+    const estado = tx.objectStore('estado');
+    for (const llave of borrarEstado) estado.delete(llave);
+  });
+}
+
 export const medidas = {
   todas: () => leer('medidas', (s) => s.getAll()),
   porFecha: (fecha) => leer('medidas', (s) => s.index('fecha').getAll(fecha)),

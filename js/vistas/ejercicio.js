@@ -8,6 +8,7 @@ import { crearSpinner } from '../componentes/spinner.js';
 import { crearVideo } from '../componentes/video.js';
 import * as formato from '../logica/formato.js';
 import { aTexto, fechaLocal } from '../logica/semana.js';
+import { resultadoDeSerie } from '../logica/temporizador.js';
 
 const PASO_PESO = { kg: 2.5, lb: 5 };
 const PASO_VALOR = { reps: 1, segundos: 5, metros: 5, minutos: 1 };
@@ -24,11 +25,21 @@ export async function montar(raiz, [idSesion, idRutina], app) {
   const elementoVideo = crearVideo({ liga: e.liga, entrada: await app.servicios.videos.de(e.liga) });
   if (datos.sesion.estado === 'en_curso') app.pantalla.activar();
 
-  // Los minutos se guardan en segundos; el control los muestra en minutos.
-  const aPantalla = (v) => (e.tipoMedida === 'minutos' && v !== null && v !== undefined ? v / 60 : v ?? null);
+  // Los minutos se guardan en segundos; el control los muestra en minutos (a una décima).
+  const aPantalla = (v) => (e.tipoMedida === 'minutos' && v !== null && v !== undefined ? Math.round((v / 60) * 10) / 10 : v ?? null);
   const aGuardar = (v) => (e.tipoMedida === 'minutos' && v !== null ? Math.round(v * 60) : v);
 
-  let abierta = primeraPendiente();
+  // Si se acaba de deshacer una serie de este ejercicio, se reabre con sus valores.
+  const borrador = app.borrador?.sesionId === sesionId && app.borrador.rutinaId === rutinaId ? app.borrador : null;
+  app.borrador = null;
+
+  // Frases del descanso (tu avance y las listas); se cargan sin detener la pantalla.
+  let frases = [];
+  servicio.frasesDescanso().then((lista) => {
+    frases = lista;
+  }, () => {});
+
+  let abierta = borrador ? borrador.numeroSerie : primeraPendiente();
   let verVideo = datos.hoy.length === 0; // el video se ve al empezar; luego se pliega
 
   render();
@@ -145,6 +156,10 @@ export async function montar(raiz, [idSesion, idRutina], app) {
 
   function valoresIniciales(k, guardadas) {
     const precarga = datos.precarga[k - 1];
+    if (!guardadas.length && borrador?.numeroSerie === k) {
+      const b = borrador.borrador;
+      return { ...precarga, peso: b.peso, unidadPeso: b.unidadPeso, valor: b.valor, lados: b.lados, rir: b.rir };
+    }
     if (!guardadas.length) return { ...precarga, lados: null, rir: null };
     const campo = e.tipoMedida === 'reps' ? 'repsHechas' : e.tipoMedida === 'metros' ? 'metros' : 'segundos';
     const base = guardadas[0];
@@ -202,11 +217,40 @@ export async function montar(raiz, [idSesion, idRutina], app) {
 
     const listo = h('button', { type: 'button', class: 'boton primario enorme', onclick: guardar }, corrigiendo ? 'Guardar corrección' : 'Listo');
 
+    // Ejercicios de tiempo: cronómetro durante la serie; precarga lo aguantado y se cierra con "Listo".
+    const esTiempo = e.tipoMedida === 'segundos' || e.tipoMedida === 'minutos';
+    const cronometrar = esTiempo
+      ? h('button', { type: 'button', class: 'boton secundario ancho', onclick: cronometrarSerie }, '▶ Cronómetro de la serie')
+      : null;
+
+    async function cronometrarSerie() {
+      app.alarma.preparar(); // el audio solo se habilita dentro de un toque
+      const objetivo = porLados ? izq.valor : unico.valor;
+      const segundos = e.tipoMedida === 'minutos' ? Math.round((objetivo ?? 0) * 60) : objetivo ?? 0;
+      if (!segundos) {
+        app.aviso('Pon primero el tiempo de la serie');
+        return;
+      }
+      const { fases, transcurrido } = await app.temporizadorSerie.correr({ segundos, porLado: e.porLado });
+      const resultado = resultadoDeSerie(fases, transcurrido);
+      porLados = Boolean(resultado.lados);
+      if (resultado.lados) {
+        izq.valor = aPantalla(resultado.lados.izq);
+        der.valor = aPantalla(resultado.lados.der);
+      } else {
+        unico.valor = aPantalla(resultado.valor);
+      }
+      if (alternar) alternar.textContent = porLados ? 'Mismo valor en los dos lados' : 'Distinto por lado';
+      pintarValor();
+      app.aviso(resultado.completo ? 'Tiempo completo: toca Listo' : 'Anoté lo que aguantaste: toca Listo', 3500);
+    }
+
     return h(
       'div',
       { class: 'serie-form' },
       h('div', { class: 'serie-form-titulo' }, `Serie ${k} de ${e.series}`, corrigiendo ? h('span', { class: 'etiqueta' }, 'corrigiendo') : null),
       peso?.elemento,
+      cronometrar,
       zonaValor,
       alternar,
       rir?.elemento,
@@ -242,24 +286,48 @@ export async function montar(raiz, [idSesion, idRutina], app) {
       return;
     }
     if (resultado.progresion) await ofrecerProgresion(resultado.progresion);
+    const deshacer = { etiqueta: 'Deshacer', alTocar: deshacerUltima };
     if (resultado.sesionTerminada) {
       app.pantalla.desactivar();
       app.ir(`#/dia/${sesionId}`, { reemplazar: true });
+      app.aviso('Entrenamiento terminado', 6000, deshacer);
       return;
     }
     datos = await servicio.datosEjercicio(sesionId, rutinaId);
     const siguienteSerie = primeraPendiente();
+    const sinDescanso = !resultado.descansoSeg;
     if (siguienteSerie === null) {
       const destino = datos.siguientePendiente;
-      app.cronometro.iniciar(resultado.descansoSeg, { texto: destino ? `Sigue: ${destino.nombre}` : '' });
+      app.cronometro.iniciar(resultado.descansoSeg, { texto: destino ? `Sigue: ${destino.nombre}` : '', frases, deshacer: deshacerUltima });
       app.ir(destino ? `#/ejercicio/${sesionId}/${destino.id}` : `#/dia/${sesionId}`, { reemplazar: true });
+      if (sinDescanso) app.aviso('Serie guardada', 6000, deshacer);
       return;
     }
     abierta = siguienteSerie;
     verVideo = false;
     render();
     const precarga = datos.precarga[siguienteSerie - 1];
-    app.cronometro.iniciar(resultado.descansoSeg, { texto: `Sigue: serie ${siguienteSerie} · ${formato.serie(precarga, e.tipoMedida)}` });
+    app.cronometro.iniciar(resultado.descansoSeg, {
+      texto: `Sigue: serie ${siguienteSerie} · ${formato.serie(precarga, e.tipoMedida)}`,
+      frases,
+      deshacer: deshacerUltima,
+    });
+    if (sinDescanso) app.aviso('Serie guardada', 6000, deshacer);
+  }
+
+  /** Deshace la última serie guardada y reabre su tarjeta con los valores que tenía. */
+  async function deshacerUltima() {
+    try {
+      const deshecha = await servicio.deshacerUltimaSerie(sesionId);
+      if (!deshecha) return;
+      app.cronometro.detener();
+      app.borrador = { sesionId, ...deshecha };
+      app.pantalla.activar();
+      app.ir(`#/ejercicio/${sesionId}/${deshecha.rutinaId}`, { reemplazar: true });
+      app.aviso('Serie deshecha: corrígela y toca Listo', 3500);
+    } catch (error) {
+      app.error(error);
+    }
   }
 
   async function ofrecerProgresion(propuesta) {
