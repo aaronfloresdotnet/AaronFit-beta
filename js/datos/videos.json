@@ -1,0 +1,351 @@
+{
+  "formato": 1,
+  "generado": "2026-09-23T02:31:46Z",
+  "metodo": "curl 8.21 (UA sin cambiar) para HTML y encabezados, y petición Range 0-1023 al medio con Referer https://aaronfloresdotnet.github.io/ más controles sin Referer y con Referer propio; Playwright 1.62 con Chromium 151 headless (UA HeadlessChrome sin cambiar) para páginas que curl no leyó y para probar <img> desde ese origen simulado; oEmbed de YouTube; bloqueos y desafíos de Cloudflare registrados sin evadirlos.",
+  "videos": {
+    "https://musclewiki.com/es-es/exercise/cable-standing-hip-abduction": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/es-es/exercise/hand-plank": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-bench-press": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl y también a Chromium headless (Playwright); no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403); playwright (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-hip-thrust": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-incline-bench-press": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-landmine-row": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-pause-box-squat": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-roll-outs": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-romanian-deadlift": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/barbell-shrug": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/bodyweight-single-leg-calf-raise": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/cable-hamstring-curl": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/cable-pull-through": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/cable-rope-overhead-tricep-extension": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/cable-rope-pushdown": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-farmer-walk": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-hammer-curl": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-incline-bench-press": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-lateral-raise": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-rear-delt-fly": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-seated-overhead-press": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-single-arm-row": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/dumbbell-single-leg-calf-raise": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/hanging-knee-raises": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/machine-face-pulls": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/machine-pulldown": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://musclewiki.com/exercise/pull-ups": {
+      "sitio": "musclewiki.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Bloqueado por Cloudflare: HTTP 403 «Sorry, you have been blocked» a curl; no se pudo leer la página ni su video. Esa respuesta 403 traía X-Frame-Options: SAMEORIGIN (x2) y CSP frame-ancestors 'self', pero no se verificó en la página real.",
+      "verificadoCon": "curl: HTML y encabezados (403)"
+    },
+    "https://workoutlabs.com/exercise-guide/single-leg-balance/": {
+      "sitio": "workoutlabs.com",
+      "estadoPagina": 200,
+      "tipo": "imagen",
+      "video": "https://workoutlabs.com/train/svg.php?id=101791&a=1",
+      "alternos": [
+        "https://workoutlabs.com/train/svg.php?id=101790&a=1",
+        "https://workoutlabs.com/train/wp-content/uploads/2025/01/single-leg-balance-S-M-1.gif"
+      ],
+      "paginaEmbebible": false,
+      "videoEmbebible": false,
+      "motivo": "Sin video. La página muestra un diagrama SVG en línea, capa femenina .f (la <img class=exImg> está en display:none); su fuente es data-furl. Página 200 en Chromium (curl recibió 403 de Apache) con X-Frame-Options: SAMEORIGIN. Ese SVG respondió image/svg+xml (146775 bytes) al pedirlo la propia página. Desde página simulada en github.io, con y sin Referer, respondió 200 text/html de 0 bytes y la <img> falla (igual svg.php sin &a=1). Con curl dio 403 con cualquier Referer. El GIF alterno (masculino, og:image; no se muestra en el cuerpo) sí carga: 206 image/gif, sin CORP, ACAO *.",
+      "verificadoCon": "playwright: DOM, estilos calculados y <img> desde origen github.io simulado; curl: Range con Referer y controles"
+    },
+    "https://www.muscleandstrength.com/exercises/bodyweight-wall-squat.html": {
+      "sitio": "muscleandstrength.com",
+      "estadoPagina": 403,
+      "tipo": null,
+      "video": null,
+      "alternos": [],
+      "paginaEmbebible": null,
+      "videoEmbebible": null,
+      "motivo": "Desafío de Cloudflare («Just a moment...», cf-mitigated: challenge, HTTP 403) a curl y a Chromium headless; se registró como bloqueado sin esperar ni resolver el desafío. X-Frame-Options: SAMEORIGIN solo apareció en la respuesta del desafío, no se verificó en la página real.",
+      "verificadoCon": "curl y playwright (403, desafío)"
+    },
+    "https://www.rehabhero.ca/exercise/ankle-eversion-with-band": {
+      "sitio": "rehabhero.ca",
+      "estadoPagina": 200,
+      "tipo": "youtube",
+      "video": "https://www.youtube.com/embed/Ub_5eH9JCpo?feature=oembed",
+      "alternos": [],
+      "paginaEmbebible": false,
+      "videoEmbebible": true,
+      "motivo": "Página 200 con X-Frame-Options: SAMEORIGIN (x2) → no se puede incrustar en iframe. Único video: bloque de video de Squarespace con iframe de YouTube (id Ub_5eH9JCpo); oEmbed de YouTube respondió 200 y su título coincide con el de la página.",
+      "verificadoCon": "curl: HTML y encabezados; oEmbed de YouTube"
+    },
+    "https://www.rehabhero.ca/exercise/lateral-step-up": {
+      "sitio": "rehabhero.ca",
+      "estadoPagina": 200,
+      "tipo": "youtube",
+      "video": "https://www.youtube.com/embed/iUCQpuXjcf0?feature=oembed",
+      "alternos": [],
+      "paginaEmbebible": false,
+      "videoEmbebible": true,
+      "motivo": "Página 200 con X-Frame-Options: SAMEORIGIN (x2) → no se puede incrustar en iframe. Único video: bloque de video de Squarespace con iframe de YouTube (id iUCQpuXjcf0); oEmbed de YouTube respondió 200 y su título coincide con el de la página.",
+      "verificadoCon": "curl: HTML y encabezados; oEmbed de YouTube"
+    }
+  }
+}
